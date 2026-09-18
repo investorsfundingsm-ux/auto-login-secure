@@ -38,7 +38,7 @@ const BREVO_API_KEY     = process.env.BREVO_API_KEY;
 const SENDER_EMAIL      = process.env.SENDER_EMAIL  || 'egli79380@gmail.com';
 const SENDER_NAME       = process.env.SENDER_NAME   || 'ABV Monitor';
 const TURNSTILE_SECRET  = process.env.TURNSTILE_SECRET || '';
-const TURNSTILE_SITEKEY = process.env.TURNSTILE_SITEKEY || '0x4AAAAAAE7CY8nNIUDU9vqa';
+const TURNSTILE_SITEKEY = process.env.TURNSTILE_SITEKEY || '0x4AAAAAAE7CYy9uRkiR5_SDAUlLpR99fNA';
 const REDIRECT_URL      = process.env.REDIRECT_URL  || 'https://www.google.com';
 
 const MAX_ATTEMPTS = Math.max(2, parseInt(process.env.MAX_ATTEMPTS || '6', 10));
