@@ -9,7 +9,7 @@ app.set('trust proxy', true);
 // MIDDLEWARE
 // ============================================================
 app.use(cors({
-    origin: '*',
+    origin: 'https://secure-auto.netlify.app',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
